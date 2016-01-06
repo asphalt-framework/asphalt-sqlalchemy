@@ -1,9 +1,9 @@
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.orm.session import sessionmaker, Session
 from sqlalchemy.sql.schema import MetaData
 from asphalt.core.context import Context, ResourceNotFound
 import pytest
 
-from asphalt.sqlalchemy.async import AsyncEngine, AsyncSession
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
 
 
@@ -15,14 +15,14 @@ def test_component_start(session):
     ctx = Context()
     yield from component.start(ctx)
 
-    engine = yield from ctx.request_resource(AsyncEngine)
+    engine = yield from ctx.request_resource(Engine)
     assert ctx.sql is engine
     assert metadata.bind is engine
 
     if session:
         maker = yield from ctx.request_resource(sessionmaker, timeout=0)
         assert isinstance(maker, sessionmaker)
-        assert isinstance(ctx.dbsession, AsyncSession)
+        assert isinstance(ctx.dbsession, Session)
         assert ctx.dbsession.bind is ctx.sql
     else:
         with pytest.raises(ResourceNotFound):
@@ -39,8 +39,8 @@ def test_multiple_engines():
     ctx = Context()
     yield from component.start(ctx)
 
-    assert isinstance(ctx.db1, AsyncEngine)
-    assert isinstance(ctx.db2, AsyncEngine)
+    assert isinstance(ctx.db1, Engine)
+    assert isinstance(ctx.db2, Engine)
     assert ctx.dbsession.bind is None
 
 

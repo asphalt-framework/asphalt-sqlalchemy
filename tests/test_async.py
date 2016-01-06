@@ -9,7 +9,7 @@ from asphalt.sqlalchemy.async import AsyncSession
 @blocking
 def test_session_context_manager(connection, raise_exception):
     """
-    Tests that the context manager commits the transaction if no exception was raised in the
+    Test that the context manager commits the transaction if no exception was raised in the
     block, and rolls back if an exception was raised.
 
     """
@@ -30,7 +30,7 @@ def test_session_context_manager(connection, raise_exception):
 
 def test_session_context_manager_wrong_thread():
     """
-    Tests that the context manager refuses to let the regular context manager to be used from the
+    Test that the context manager refuses to let the regular context manager to be used from the
     event loop thread.
 
     """
@@ -45,7 +45,7 @@ def test_session_context_manager_wrong_thread():
 @pytest.mark.asyncio
 def test_session_async_context_manager(connection, raise_exception):
     """
-    Tests that the async context manager commits the transaction if no exception was raised in the
+    Test that the async context manager commits the transaction if no exception was raised in the
     block, and rolls back if an exception was raised.
 
     """

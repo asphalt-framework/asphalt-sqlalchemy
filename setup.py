@@ -35,7 +35,7 @@ setup(
         'setuptools_scm >= 1.7.0'
     ],
     install_requires=[
-        'asphalt >= 1.2, < 1.999',
+        'asphalt >= 1.2, < 2.0',
         'SQLAlchemy >= 1.0.10'
     ],
     entry_points={

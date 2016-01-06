@@ -35,11 +35,11 @@ class CSVImporterComponent(ContainerComponent):
         if db_path.exists():
             db_path.unlink()
 
-        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path))
+        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path), metadata=metadata)
         super().start(ctx)
 
         # Create the table
-        people.create(ctx.sql)
+        metadata.create_all()
 
         num_rows = 0
         with csv_path.open() as csvfile, ctx.sql.begin() as connection:

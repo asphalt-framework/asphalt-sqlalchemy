@@ -5,15 +5,14 @@ from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.strategies import DefaultEngineStrategy
 from sqlalchemy.ext.horizontal_shard import ShardedSession
 from sqlalchemy.orm import Query, Session
-from asphalt.core.concurrency import is_event_loop_thread
-from asphalt.core.util import blocking
+from asphalt.core.concurrency import is_event_loop_thread, blocking
 
 
 class AsyncConnection(Connection):
     """
     An asyncio friendly version of the :class:`~sqlalchemy.engine.Connection` class.
 
-    The following methods have been wrapped as coroutines which execute in the thread pool:
+    The following methods have been wrapped with ``@blocking``:
 
     * :meth:`~sqlalchemy.engine.Connection.execute`
     * :meth:`~sqlalchemy.engine.Connection.scalar`
@@ -31,7 +30,7 @@ class AsyncEngine(Engine):
     """
     An asyncio friendly version of the :class:`~sqlalchemy.engine.Engine` class.
 
-    The following methods have been wrapped as coroutines which execute in the thread pool:
+    The following methods have been wrapped with ``@blocking``:
 
     * :meth:`~sqlalchemy.engine.Engine.connect`
     * :meth:`~sqlalchemy.engine.Engine.contextual_connect`
@@ -51,7 +50,7 @@ class AsyncQuery(Query):
     """
     An asyncio friendly version of the :class:`~sqlalchemy.orm.query.Query` class.
 
-    The following methods have been wrapped as coroutines which execute in the thread pool:
+    The following methods have been wrapped with ``@blocking``:
 
     * :meth:`~sqlalchemy.orm.query.Query.all`
     * :meth:`~sqlalchemy.orm.query.Query.count`
@@ -59,6 +58,7 @@ class AsyncQuery(Query):
     * :meth:`~sqlalchemy.orm.query.Query.first`
     * :meth:`~sqlalchemy.orm.query.Query.get`
     * :meth:`~sqlalchemy.orm.query.Query.one`
+    * :meth:`~sqlalchemy.orm.query.Query.one_or_none`
     * :meth:`~sqlalchemy.orm.query.Query.scalar`
     * :meth:`~sqlalchemy.orm.query.Query.update`
     """
@@ -69,6 +69,7 @@ class AsyncQuery(Query):
     first = blocking(Query.first)
     get = blocking(Query.get)
     one = blocking(Query.one)
+    one_or_none = blocking(Query.one_or_none)
     scalar = blocking(Query.scalar)
     update = blocking(Query.update)
 
@@ -81,7 +82,7 @@ class AsyncSession(Session):
     ``async with``). It will automatically call :meth:`commit` if the block is exited without
     having raised an exception.
 
-    The following methods have been wrapped as coroutines which execute in the thread pool:
+    The following methods have been wrapped with ``@blocking``:
 
     * :meth:`~sqlalchemy.orm.session.Session.bulk_insert_mappings`
     * :meth:`~sqlalchemy.orm.session.Session.bulk_save_objects`
@@ -135,8 +136,7 @@ class AsyncShardedSession(ShardedSession, AsyncSession):
     An asyncio friendly version of the :class:`~sqlalchemy.ext.horizontal_shard.ShardedSession`
     class that also inherits all the functionality from the :class:`AsyncSession` class.
 
-    The following method from ShardedSession has been wrapped as a coroutine which executes in the
-    thread pool:
+    The following method from ShardedSession has been wrapped with ``@blocking``:
 
     * :meth:`~sqlalchemy.ext.horizontal_shard.ShardedSession.connection`
     """

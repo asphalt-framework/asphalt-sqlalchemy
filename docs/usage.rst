@@ -1,82 +1,47 @@
-User guide
-==========
+Using engines and sessions
+==========================
 
-By its nature, SQLAlchemy is not very friendly to the explicit asynchronous programming style.
-In particular, iteration over a :class:`~sqlalchemy.orm.Query` and lazy loading of relationships
-and deferred columns will implicitly cause further queries to be run which block the event loop.
-Therefore it is strongly recommended that you make your handler run in a thread using the
-:py:obj:`~asphalt.core.util.blocking` decorator when using SQLAlchemy.
+Asphalt-sqlalchemy provides enhanced versions of SQLAlchemy's
+:class:`~sqlalchemy.engine.Engine`, :class:`~sqlalchemy.engine.Connection`,
+:class:`~sqlalchemy.orm.session.Session` and :class:`~sqlalchemy.orm.query.Query`
+classes, modified to make them work better with asyncio by wrapping all methods that would
+potentially block the event loop for long periods of time.
 
-That said, some augmentations to the upstream SQLAlchemy API are provided to make it work better
-with event loops:
-
-* Wrapping all blocking methods in the engine, session and query
-* Providing "async with" support in the session
-
-.. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
-.. _SQL Expression Language Tutorial: http://docs.sqlalchemy.org/en/latest/core/tutorial.html
-
-
-Configuration
--------------
-
-The general structure of the configuration is as follows:
-
-.. code-block:: yaml
-
-    session:
-      context_var: dbsession
-      commit_on_finish: false
-      # add any keyword arguments to sessionmaker() here
-    engines:
-      db1:
-        url: "postgresql:///mydatabase"
-        metadata: package.foo:Base.metadata
-        # add any keyword arguments to create_engine() here
-      db2:
-        url: "sqlite:///mydb.sqlite"
-        metadata: otherpackage.bar:Base.metadata
-        # add any keyword arguments to create_engine() here
-
-This example configures two database engines, named ``db1`` an ``db2``. The first connects to a
-PostgreSQL database named "mydatabase" via UNIX sockets and the second connects to an SQLite
-database file named ``mydb.sqlite``.
-
-In order to use the session, you need to connect the configured engines to the metadata in your
-declarative base class(es). This is done by specifying the ``metadata`` option for each engine,
-as shown above.
-
-
-
-
-Published resources
--------------------
-
-The SQLAlchemy component publishes the configured engines as resources of type
-:class:`asphalt.sqlalchemy.async.AsyncEngine`. Each engine resource is named the same as its
-configuration key (``db1`` and ``db2`` in the above example) and they are available on the context
-with the same names.
-
-Unless you explicitly disabled the ORM by setting ``session`` to ``False``, the following
-resources are also published:
-
-* a :class:`sqlalchemy.orm.session.sessionmaker` named ``default`` (no context variable)
-* an :class:`asphalt.sqlalchemy.async.AsyncSession` as a lazy resource named ``default``
-  (available on the context as ``dbsession`` by default; configurable via ``context_var``)
+Additionally, some support is provided to make the ORM session more convenient to use by providing
+context manager (regular and asynchronous) support in the
+:class:`~asphalt.sqlalchemy.async.AsyncSession` class.
 
 
 Working with a Session
 ----------------------
 
-The following example code retrieves a parent Person (an arbitrarily named model class) and adds
-a child to it. It makes the following assumptions:
+If you're not familiar with SQLAlchemy's ORM, it is recommended that you look through the
+`Object Relational Tutorial`_ first.
 
-* SQLAlchemy component configured with the default settings and one engine named "db"
-* The context (``ctx``) here is a request handler context which finishes right after this
-  method call
-* ``Person`` is a mapped class you've imported from elsewhere
-* ``Person.children`` is a one-to-many relationship to ``Person`` itself (self referential)
+The following example code retrieves a parent ``Person`` (an arbitrarily named model class) and
+adds a child to it. It makes the following assumptions:
+
+* SQLAlchemy component configured with the default settings and one engine
 * There is already a person with the name "Senior" in the database
+
+The models module should contain the Person class:
+
+.. code-block:: python
+
+    from sqlalchemy.ext.declarative import declarative_base
+
+    Base = declarative_base()
+
+
+    class Person(Base):
+        __tablename__ = 'people'
+        id = Column(Integer, primary_key=True)
+        parent_id = Column(ForeignKey('people.id'))
+        name = Column(Unicode, nullable=False)
+
+        children = relationship('Person', remote_side=[parent_id])
+
+Then, your business logic should work along these lines:
 
 .. code-block:: python
 
@@ -86,9 +51,12 @@ a child to it. It makes the following assumptions:
             parent = ctx.dbsession.query(Person).filter_by(name='Senior').one()
             # No need to add the child to the session; cascade from the parent will trigger the INSERT
             parent.children.append(Person(name='Junior'))
-            # No need for explicit .commit() since commit_on_finish is enabled by default
+            # The context manager commits the session on exit
 
-The above example using a coroutine handler would look like this in Python 3.5 and above:
+The context manager will automatically commit the session unless the block was exited due to an
+exception being raised.
+
+The above example using a native coroutine handler would look like this:
 
 .. code-block:: python
 
@@ -96,28 +64,53 @@ The above example using a coroutine handler would look like this in Python 3.5 a
         async with ctx.dbsession:
             parent = await ctx.dbsession.query(Person).filter_by(name='Senior').one()
             parent.children.append(Person(name='Junior'))
+            # The context manager commits the session on exit
 
-In a Python 3.4 coroutine it gets a little awkward as the async context manager can't be used:
+In a non-native (Python 3.4) coroutine this requires a tad more code as the async context manager
+can't be used:
 
 .. code-block:: python
 
+    from contextlib import closing
+
     @coroutine
     def handler(ctx):
-        try:
+        with closing(ctx.dbsession):
             parent = yield from ctx.dbsession.query(Person).filter_by(name='Senior').one()
             parent.children.append(Person(name='Junior'))
             yield from ctx.dbsession.commit()
-        finally:
-            ctx.dbsession.close()
+
+.. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
 
 
-Using Session in short-lived contexts
--------------------------------------
+ORM gotchas and pitfalls with asynchronous code
+-----------------------------------------------
 
-Request serving Components typically create short lived "request" contexts for the request handlers
-which finish right after the handler function has finished executing.
-In such cases it is possible to further simplify the use of the Session by skipping the use of the
-context manager:
+By its nature, SQLAlchemy is not very friendly to the explicit asynchronous programming style.
+In particular, there are two features of the ORM that are problematic and will only work with
+``@blocking``:
+
+* Iteration over a :class:`~sqlalchemy.orm.query.Query`
+* Lazy loading of related objects and collections
+
+Attempting to use these features from the event loop thread will cause confusing exceptions because
+the necessary methods have been wrapped with ``@blocking`` which makes them work as coroutines
+from the event loop thread and the SQLAlchemy API is not expecting that.
+
+It should also be noted that ORM sessions are *not* safe to use concurrently in multiple threads
+or even in multiple asyncio tasks. Therefore, **never** attempt to spawn multiple tasks that share
+the same :class:`~sqlalchemy.orm.session.Session`. However, if you run each task in their own
+:class:`~asphalt.core.context.Context`, they will automatically get their own Session instance
+which solves the problem.
+
+
+Session automatic commit at the end of the context
+--------------------------------------------------
+
+When a :class:`~asphalt.core.context.Context` containing an ORM session is finished, the session
+is automatically committed unless the context ended with an exception. If the context is a short
+lived one, like a request context in an RPC or web server, this saves you from explicitly using
+the context manager feature of :class:`~asphalt.sqlalchemy.async.AsyncSession`:
 
 .. code-block:: python
 
@@ -126,26 +119,23 @@ context manager:
         parent = ctx.dbsession.query(Person).filter_by(name='Senior').one()
         # No need to add the child to the session; cascade from the parent will trigger the INSERT
         parent.children.append(Person(name='Junior'))
-        # No need for explicit .commit() since commit_on_finish is enabled by default
-
-Async style in Python 3.5+:
-
-.. code-block:: python
-
-    async def handler(ctx):
-        parent = await ctx.dbsession.query(Person).filter_by(name='Senior').one()
-        parent.children.append(Person(name='Junior'))
-
-And Python 3.4:
-
-.. code-block:: python
-
-    @coroutine
-    def handler(ctx):
-        parent = yield from ctx.dbsession.query(Person).filter_by(name='Senior').one()
-        parent.children.append(Person(name='Junior'))
+        # Commit is done automatically at the end of the context
 
 
 Working with core queries
 -------------------------
 
+If you're not familiar with SQLAlchemy's core functionality, you should take a look at the
+`SQL Expression Language Tutorial`_ first.
+
+The above example can also be done using core queries:
+
+.. code-block:: python
+
+    @blocking
+    def handler(ctx):
+        with ctx.sql.begin():  # optional; creates a transaction
+            parent_id = ctx.sql.execute(select([people.c.id]).where(name='Senior')).scalar()
+            ctx.sql.execute(people.insert().values(name='Junior'))
+
+.. _SQL Expression Language Tutorial: http://docs.sqlalchemy.org/en/latest/core/tutorial.html

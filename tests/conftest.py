@@ -1,11 +1,7 @@
 from sqlalchemy.engine import create_engine
-from asphalt.core.concurrency import set_event_loop
 import pytest
 
-
-@pytest.fixture(autouse=True)
-def setup_asphalt_event_loop(event_loop):
-    set_event_loop(event_loop)
+pytest_plugins = ['asphalt.core.pytest_plugin']
 
 
 @pytest.yield_fixture
