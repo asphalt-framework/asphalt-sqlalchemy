@@ -1,0 +1,5 @@
+[run]
+source = asphalt.sqlalchemy
+
+[report]
+show_missing = true
