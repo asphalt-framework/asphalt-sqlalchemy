@@ -8,9 +8,7 @@ stored in its ``info`` dictionary (``ctx.dbsession.info['ctx'] is ctx.dbsession`
 
 In order to add a listener that applies to every ORM session created in the future, you can add
 your listener in the :class:`~sqlalchemy.orm.session.sessionmaker` which is published by the
-SQLAlchemy component as a resource:
-
-.. code-block:: python
+SQLAlchemy component as a resource::
 
     from asphalt.core.component import ContainerComponent
     from sqlalchemy.orm import sessionmaker
@@ -22,9 +20,6 @@ SQLAlchemy component as a resource:
         # do something with the context
 
 
-    class TopComponent(ContainerComponent):
-        @coroutine
-        def start(ctx):
-            yield from super().start(ctx)
-            session_factory = yield from ctx.request_resource(sessionmaker)
-            event.listen(session_factory, 'before_commit', precommit_hook)
+    async def handler(ctx):
+        session_factory = await ctx.request_resource(sessionmaker)
+        event.listen(session_factory, 'before_commit', precommit_hook)

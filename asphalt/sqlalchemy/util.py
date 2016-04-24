@@ -1,27 +1,30 @@
 import os
+from typing import Union
 
-from sqlalchemy.engine import create_engine, Connection
+from sqlalchemy.engine import Connection
+from sqlalchemy.engine.url import URL
 from sqlalchemy.sql.ddl import DropConstraint
 from sqlalchemy.sql.schema import MetaData
 from typeguard import check_argument_types
 
+from asphalt.sqlalchemy.component import SQLAlchemyComponent
 
-def connect_test_database(url: str, **engine_kwargs) -> Connection:
+
+def connect_test_database(url: Union[str, URL], **engine_kwargs) -> Connection:
     """
-    Connect to the given database and drops any existing tables in it.
+    Connect to the given database and drop any existing tables in it.
 
     For SQLite URLs pointing to a file, the target database file will be deleted and a new one is
     created in its place.
 
-    .. seealso:: :func:`sqlalchemy.create_engine`
-
     :param url: connection URL for the database
-    :param engine_kwargs: additional keyword arguments passed to :func:`sqlalchemy.create_engine`
+    :param engine_kwargs: additional keyword arguments passed to
+        :meth:`asphalt.sqlalchemy.component.SQLAlchemyComponent.create_engine`
     :return: a connection object
 
     """
-    check_argument_types()
-    engine = create_engine(url, **engine_kwargs)
+    assert check_argument_types()
+    _context_attr, engine = SQLAlchemyComponent.configure_engine(url=url, **engine_kwargs)
 
     if engine.dialect.name == 'sqlite':
         # SQLite does not support dropping constraints and it's faster to just delete the file

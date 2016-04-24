@@ -2,7 +2,7 @@ from sqlalchemy.sql.schema import MetaData, Table, Column, ForeignKey
 from sqlalchemy.sql.sqltypes import Integer, Unicode
 import pytest
 
-from asphalt.sqlalchemy.utils import connect_test_database
+from asphalt.sqlalchemy.util import connect_test_database
 
 
 @pytest.fixture(params=['sqlite', 'mysql', 'postgresql'])

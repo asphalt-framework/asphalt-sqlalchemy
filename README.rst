@@ -4,19 +4,10 @@
 .. image:: https://coveralls.io/repos/asphalt-framework/asphalt-sqlalchemy/badge.svg?branch=master&service=github
   :target: https://coveralls.io/github/asphalt-framework/asphalt-sqlalchemy?branch=master
   :alt: Code Coverage
-.. image:: https://codeclimate.com/github/asphalt-framework/asphalt-sqlalchemy/badges/gpa.svg
-  :target: https://codeclimate.com/github/asphalt-framework/asphalt-sqlalchemy
-  :alt: Code Climate
 
-This component provides `SQLAlchemy`_ integration for the Asphalt framework.
+This Asphalt framework component provides connectivity to relational databases.
 
-SQLAlchemy is a library for working with relational databases.
-It offers both an ORM (`Object Relational Mapper`_) and a "core" API that both abstract away
-many of the differences in various SQL dialects. It also includes powerful facilities to
-dynamically construct and execute database queries.
-
-.. _SQLAlchemy: http://www.sqlalchemy.org/
-.. _Object Relational Mapper: https://en.wikipedia.org/wiki/Object-relational_mapping
+It is a wrapper for the SQLAlchemy_ library.
 
 
 Project links
@@ -28,6 +19,7 @@ Project links
 * `Issue tracker`_
 
 
+.. _SQLAlchemy: http://www.sqlalchemy.org/
 .. _Documentation: http://asphalt-sqlalchemy.readthedocs.org/en/latest/
 .. _Help and support: https://github.com/asphalt-framework/asphalt/wiki/Help-and-support
 .. _Source code: https://github.com/asphalt-framework/asphalt-sqlalchemy
