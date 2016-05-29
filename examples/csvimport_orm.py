@@ -32,7 +32,7 @@ class Person(Base):
 
 class ApplicationrComponent(ContainerComponent):
     async def start(self, ctx: Context):
-        csv_path = Path(__file__).parent / 'people.csv'
+        csv_path = Path(__file__).with_name('people.csv')
         db_path = csv_path.with_name('people.db')
 
         # Remove any existing db file
