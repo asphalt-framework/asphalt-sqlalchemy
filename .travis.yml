@@ -27,3 +27,13 @@ notifications:
     on_failure: change
     use_notice: true
     skip_join: true
+
+deploy:
+  provider: pypi
+  user: agronholm
+  password:
+    secure: aDBD0i2BZGzTEB6auc2bR3JQ2Z522GEvrACFIw+w1xBNwWyGQ7gHCJIHCaXqBK5zc+JsA0r+9igfRoapxqa8/PSsj/tR3VmXjki30H6R1AsVXHujFdMpPaZGjNs6leR1MIH3BESM/JBJXG1+tnJrhRCbpxGcTxAUP7DRYKPpbj2WggmvX0G8i6AphW35CeB1YbZvQ3+Sq7nqQxPGUaotXmtSxJK6ffikPX3sVInCL6X155H86niIdATmVburYrUCr/YYoQPkKpKeSHnjLcc4dZrlv5nE5/D4TGrmsX7AyH+2ZfgXLfYiEnGKZkg6HuOmvNLB1Eq0L2+L+VlRt7yf5oqAw7AH371kN2VBCn8/QuI67oQ9JIUUeDxf5OXMgHpMrOj+jhgNqjJc9lsv+Bqu0CvcOAynmGBi55MNGKedpxeUfhasf5uf/7mkX80hG2p4su46u2qQpcj8DC7NSw18olgbB62hSXWkJNZV8WwXYtAoyScxDD2IfOgBHol5kXcGBXv67OFULefh1XKLiH0c8+xpVNsG9jJikNVw9x4qKX9+zF5h892sxAaDq6I5iRIXpMmDqOhyP0ZtaNM0bgEaESV+ivYPr2swqnozVGBm0rFl2+rjJO4u49ZbuNbmXdICli2MqR3bPT5cv0lQpkOTrQbywq0URGUmTWPkQ4h46wg=
+  distributions: sdist bdist_wheel
+  on:
+    tags: true
+    repo: asphalt-framework/asphalt-sqlalchemy
