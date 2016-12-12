@@ -34,6 +34,16 @@ setup(
         'asphalt ~= 2.0',
         'SQLAlchemy >= 1.0.10'
     ],
+    extras_require={
+        'testing': [
+            'pytest',
+            'pytest-asyncio',
+            'pytest-catchlog',
+            'pytest-cov',
+            'psycopg2',
+            'cymysql'
+        ]
+    },
     entry_points={
         'asphalt.components': [
             'sqlalchemy = asphalt.sqlalchemy.component:SQLAlchemyComponent'
