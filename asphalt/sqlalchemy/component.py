@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import Executor
 from contextlib import closing
 from typing import Dict, Any, Union
 
@@ -61,20 +62,24 @@ class SQLAlchemyComponent(Component):
             if len(self.connectables) == 1:
                 session.setdefault('bind', self.connectables[0][-1])
 
-            self.session_context_attr, self.sessionmaker = self.configure_sessionmaker(**session)
+            self.session_context_attr, self.commit_executor, self.sessionmaker = \
+                self.configure_sessionmaker(**session)
 
     @classmethod
-    def configure_sessionmaker(cls, context_attr: str = 'dbsession', **session_args):
+    def configure_sessionmaker(cls, context_attr: str = 'dbsession',
+                               commit_executor: Union[Executor, str] = None, **session_args):
         """
         Create the session factory.
 
         :param context_attr: context attribute for lazily created sessions
+        :param commit_executor: thread pool executor or a resource name of one to use for the
+            automatic commit
         :param session_args: keyword arguments passed directly to
             :class:`~sqlalchemy.orm.session.sessionmaker`
 
         """
         assert check_argument_types()
-        return context_attr, sessionmaker(**session_args)
+        return context_attr, commit_executor, sessionmaker(**session_args)
 
     @classmethod
     def configure_engine(cls, context_attr: str = None, metadata: Union[str, MetaData] = None,
@@ -122,7 +127,7 @@ class SQLAlchemyComponent(Component):
         async def handler_finished(event):
             with closing(session):
                 if event.exception is None and session.is_active:
-                    await call_in_executor(session.commit)
+                    await call_in_executor(session.commit, executor=self.commit_executor)
 
         session = self.sessionmaker(info={'ctx': ctx})
         ctx.finished.connect(handler_finished)
@@ -135,6 +140,9 @@ class SQLAlchemyComponent(Component):
                         context_attr, bind.dialect.name)
 
         if self.sessionmaker:
+            if isinstance(self.commit_executor, str):
+                self.commit_executor = await ctx.request_resource(Executor, self.commit_executor)
+
             ctx.publish_resource(self.sessionmaker)
             ctx.publish_lazy_resource(self.create_session, Session,
                                       context_attr=self.session_context_attr)
