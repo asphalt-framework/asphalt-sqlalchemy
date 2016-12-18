@@ -8,6 +8,7 @@ services:
 
 python:
   - "3.5"
+  - "3.6-dev"
 
 before_install:
   - psql -c "create database asphalttest" -U postgres
@@ -36,4 +37,5 @@ deploy:
   distributions: sdist bdist_wheel
   on:
     tags: true
+    python: "3.5"
     repo: asphalt-framework/asphalt-sqlalchemy
