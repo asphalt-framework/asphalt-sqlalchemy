@@ -1,6 +1,5 @@
 import logging
 from concurrent.futures import Executor
-from contextlib import closing
 from typing import Dict, Any, Union
 
 from asyncio_extras.threads import call_in_executor
@@ -125,9 +124,11 @@ class SQLAlchemyComponent(Component):
 
     def create_session(self, ctx: Context):
         async def handler_finished(event):
-            with closing(session):
+            try:
                 if event.exception is None and session.is_active:
                     await call_in_executor(session.commit, executor=self.commit_executor)
+            finally:
+                session.close()
 
         session = self.sessionmaker(info={'ctx': ctx})
         ctx.finished.connect(handler_finished)

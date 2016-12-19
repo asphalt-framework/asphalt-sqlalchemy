@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**2.1.1** (2016-12-19)
+
+- Modified session finalization code to work around a suspected Python bug
+
 **2.1.0** (2016-12-12)
 
 - Added the ``commit_executor`` option that lets users specify which executor to use for running
