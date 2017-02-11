@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**2.1.3** (2017-02-11)
+
+- A better fix for the memory leak plugged in v2.1.2.
+
 **2.1.2** (2017-02-11)
 
 - Fixed a memory leak that was triggered by using the context's SQLAlchemy session

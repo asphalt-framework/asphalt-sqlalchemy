@@ -1,8 +1,8 @@
 import logging
-import weakref
 from concurrent.futures import Executor
 from typing import Dict, Any, Union
 
+from asphalt.core import Component, Context, resolve_reference, merge_config
 from asyncio_extras.threads import call_in_executor
 from sqlalchemy.engine import create_engine, Engine
 from sqlalchemy.engine.interfaces import Connectable
@@ -10,8 +10,6 @@ from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.sql.schema import MetaData
 from typeguard import check_argument_types
-
-from asphalt.core import Component, Context, resolve_reference, merge_config
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +128,9 @@ class SQLAlchemyComponent(Component):
                     await call_in_executor(session.commit, executor=self.commit_executor)
             finally:
                 session.close()
+                del session.info['ctx']
 
-        session = self.sessionmaker(info={'ctx': weakref.proxy(ctx)})
+        session = self.sessionmaker(info={'ctx': ctx})
         ctx.finished.connect(handler_finished)
         return session
 

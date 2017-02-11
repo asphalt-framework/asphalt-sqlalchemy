@@ -1,7 +1,6 @@
 import gc
 from concurrent.futures import Executor, ThreadPoolExecutor
 from contextlib import closing
-from weakref import ProxyType
 
 import pytest
 from asphalt.core.context import Context, ResourceNotFound
@@ -32,34 +31,34 @@ def executor():
 async def test_component_start(session):
     metadata = MetaData()
     component = SQLAlchemyComponent(url='sqlite://', metadata=metadata, session=session)
-    ctx = Context()
-    await component.start(ctx)
+    async with Context() as ctx:
+        await component.start(ctx)
 
-    engine = await ctx.request_resource(Engine)
-    assert ctx.sql is engine
-    assert metadata.bind is engine
+        engine = await ctx.request_resource(Engine)
+        assert ctx.sql is engine
+        assert metadata.bind is engine
 
-    if session:
-        maker = await ctx.request_resource(sessionmaker, timeout=0)
-        assert isinstance(maker, sessionmaker)
-        assert isinstance(ctx.dbsession, Session)
-        assert ctx.dbsession.bind is ctx.sql
-    else:
-        with pytest.raises(ResourceNotFound):
-            await ctx.request_resource(sessionmaker, timeout=0)
+        if session:
+            maker = await ctx.request_resource(sessionmaker, timeout=0)
+            assert isinstance(maker, sessionmaker)
+            assert isinstance(ctx.dbsession, Session)
+            assert ctx.dbsession.bind is ctx.sql
+        else:
+            with pytest.raises(ResourceNotFound):
+                await ctx.request_resource(sessionmaker, timeout=0)
 
-        assert not hasattr(ctx, 'dbsession')
+            assert not hasattr(ctx, 'dbsession')
 
 
 @pytest.mark.asyncio
 async def test_multiple_engines():
     component = SQLAlchemyComponent(engines={'db1': {}, 'db2': {}}, url='sqlite://')
-    ctx = Context()
-    await component.start(ctx)
+    async with Context() as ctx:
+        await component.start(ctx)
 
-    assert isinstance(ctx.db1, Engine)
-    assert isinstance(ctx.db2, Engine)
-    assert ctx.dbsession.bind is None
+        assert isinstance(ctx.db1, Engine)
+        assert isinstance(ctx.db2, Engine)
+        assert ctx.dbsession.bind is None
 
 
 @pytest.mark.parametrize('raise_exception', [False, True])
@@ -103,5 +102,4 @@ async def test_memory_leak():
 
     del ctx
     gc.collect()  # needed on PyPy
-    assert next((x for x in gc.get_objects() if not isinstance(x, ProxyType) and
-                 isinstance(x, Context)), None) is None
+    assert next((x for x in gc.get_objects() if isinstance(x, Context)), None) is None
