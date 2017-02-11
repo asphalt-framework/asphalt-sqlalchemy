@@ -1,6 +1,7 @@
-from concurrent.futures import Executor
-from concurrent.futures import ThreadPoolExecutor
+import gc
+from concurrent.futures import Executor, ThreadPoolExecutor
 from contextlib import closing
+from weakref import ProxyType
 
 import pytest
 from asphalt.core.context import Context, ResourceNotFound
@@ -90,3 +91,17 @@ async def test_finish_commit(raise_exception, executor, commit_executor, tmpdir)
 def test_missing_url_bind():
     exc = pytest.raises(ValueError, SQLAlchemyComponent)
     assert str(exc.value) == 'specify either url or bind'
+
+
+@pytest.mark.asyncio
+async def test_memory_leak():
+    """Test that creating a session in a context does not leak memory."""
+    component = SQLAlchemyComponent(url='sqlite:///:memory:')
+    async with Context() as ctx:
+        await component.start(ctx)
+        assert isinstance(ctx.dbsession, Session)
+
+    del ctx
+    gc.collect()  # needed on PyPy
+    assert next((x for x in gc.get_objects() if not isinstance(x, ProxyType) and
+                 isinstance(x, Context)), None) is None

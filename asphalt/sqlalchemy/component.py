@@ -1,4 +1,5 @@
 import logging
+import weakref
 from concurrent.futures import Executor
 from typing import Dict, Any, Union
 
@@ -130,7 +131,7 @@ class SQLAlchemyComponent(Component):
             finally:
                 session.close()
 
-        session = self.sessionmaker(info={'ctx': ctx})
+        session = self.sessionmaker(info={'ctx': weakref.proxy(ctx)})
         ctx.finished.connect(handler_finished)
         return session
 
