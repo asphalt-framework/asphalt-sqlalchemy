@@ -10,58 +10,19 @@ performance of interactions with such blocking APIs. The database server might b
 completely unreachable, in which case your whole application hangs during the query. Even when it
 does not, your queries might gradually get slower due to increasing amounts of data. For these
 reasons, it is recommended that you handle your SQLAlchemy interactions in worker threads. The
-asyncio_extras_ library provides several alternatives for elegantly wrapping your code so it
-automatically runs in a worker thread.
+:class:`~asphalt.core.context.Context` class provides a few conveniences for this purpose.
 
 .. seealso:: :doc:`asphalt:userguide/concurrency`
 
-.. _asyncio_extras: https://github.com/agronholm/asyncio_extras
+Transactions
+------------
 
-Working with the Object Relational Mapper (ORM)
------------------------------------------------
-
-If you're not familiar with SQLAlchemy's ORM, you should look through the
-`Object Relational Tutorial`_ first.
-
-The following example code retrieves a parent ``Person`` (an arbitrarily named model class) and
-adds a child to it. It makes the following assumptions:
-
-* SQLAlchemy component configured with the default settings and one engine
-* There is already a person with the name "Senior" in the database
-
-Your codebase should contain a mapped class named ``Person``::
-
-    from sqlalchemy.ext.declarative import declarative_base
-
-    Base = declarative_base()
-
-
-    class Person(Base):
-        __tablename__ = 'people'
-        id = Column(Integer, primary_key=True)
-        parent_id = Column(ForeignKey('people.id'))
-        name = Column(Unicode, nullable=False)
-
-        children = relationship('Person', remote_side=[parent_id])
-
-Then, your business logic should work along these lines::
-
-    from asyncio_extras import threadpool
-
-
-    async def handler(ctx):
-        # Database queries can block the event loop, so run this in a thread pool
-        async with threadpool():
-            parent = ctx.dbsession.query(Person).filter_by(name='Senior').one()
-            # No need to add the child to the session; cascade from the parent will trigger the INSERT
-            parent.children.append(Person(name='Junior'))
-            # Commit happens automatically when the context finishes
-
-When the context finishes, the session will be automatically committed unless the context finished
-due to an unhandled exception or the session is in a state of a broken transaction. This allows
-you to eliminate most boilerplate ``commit()`` calls from your business logic.
-
-.. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
+In asphalt-sqlalchemy, database connections are made on demand when you request a connection,
+either via one of the methods in the :class:`~asphalt.core.context.Context` class or by directly
+accessing the appropriate context attribute of the connection resource. The resulting connection
+begins a transaction that is automatically committed when the context is was created through is
+torn down, unless the context was ended by an unhandled exception. The connection is always closed
+in either case.
 
 Working with core queries
 -------------------------
@@ -72,9 +33,44 @@ If you're not familiar with SQLAlchemy's core functionality, you should take a l
 Here's how the above example would work using core queries::
 
     async def handler(ctx):
-        async with threadpool():
-            with ctx.sql.begin():  # optional; creates a transaction
-                parent_id = ctx.sql.execute(select([people.c.id]).where(name='Senior')).scalar()
-                ctx.sql.execute(people.insert().values(name='Junior'))
+        async with ctx.threadpool():
+            parent_id = ctx.sql.scalar(select([people.c.id]).where(name='Senior'))
+            ctx.sql.execute(people.insert().values(name='Junior'))
+
+        # Commit happens automatically when the context is torn down
 
 .. _SQL Expression Language Tutorial: http://docs.sqlalchemy.org/en/latest/core/tutorial.html
+
+Working with the Object Relational Mapper (ORM)
+-----------------------------------------------
+
+If you're not familiar with SQLAlchemy's ORM, you should look through the
+`Object Relational Tutorial`_ first.
+
+    async def handler(ctx):
+        # Database queries can block the event loop, so run this in a thread pool
+        async with ctx.threadpool():
+            parent = ctx.dbsession.query(Person).filter_by(name='Senior').one()
+            parent.children.append(Person(name='Junior'))
+
+        # Commit happens automatically when the context is torn down
+
+.. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
+
+Loading data at application startup
+-----------------------------------
+
+It is unadvisable to use connection or session resources from a long lived context. This would
+unnecessarily tie up connection resources, and if the connection is used repeatedly, it may get
+stale data due to transaction isolation.
+
+A better way is to create a throwaway child context when you need to load initial data for the
+application::
+
+    class ApplicationComponent(ContainerComponent):
+        async def start(ctx):
+            # ctx here is the root context
+            async with Context(ctx) as subctx:
+                self.employees = ctx.dbsession.query(Employee).all()
+
+The connection and session will be automatically closed once the context manager block is exited.

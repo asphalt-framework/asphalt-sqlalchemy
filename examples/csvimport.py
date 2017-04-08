@@ -1,15 +1,15 @@
 """
 A simple example that imports a tab-delimited CSV file (people.csv) into an SQLite database
 (people.db).
+
+This version of the example uses SQLAlchemy core.
 """
 
-import asyncio
 import csv
 import logging
 from pathlib import Path
 
-from asphalt.core import ContainerComponent, Context, run_application
-from asyncio_extras.threads import threadpool
+from asphalt.core import CLIApplicationComponent, Context, run_application
 from sqlalchemy.sql.schema import MetaData, Table, Column
 from sqlalchemy.sql.sqltypes import Integer, Unicode
 
@@ -25,31 +25,35 @@ people = Table(
 )
 
 
-class CSVImporterComponent(ContainerComponent):
-    async def start(self, ctx: Context):
-        csv_path = Path(__file__).with_name('people.csv')
-        db_path = csv_path.with_name('people.db')
+class CSVImporterComponent(CLIApplicationComponent):
+    def __init__(self):
+        super().__init__()
+        self.csv_path = Path(__file__).with_name('people.csv')
 
-        # Remove any existing db file
+    async def start(self, ctx: Context):
+        # Remove the db file if it exists
+        db_path = self.csv_path.with_name('people.db')
         if db_path.exists():
             db_path.unlink()
 
-        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path), metadata=metadata)
+        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path))
         await super().start(ctx)
 
-        # Create the table
-        metadata.create_all()
+        # Create the table in a subcontext – never use connections or sessions from a long lived
+        # context!
+        async with Context(ctx):
+            metadata.create_all(ctx.sql)
 
-        num_rows = 0
-        async with threadpool():
-            with csv_path.open() as csvfile, ctx.sql.begin() as connection:
+    async def run(self, ctx: Context):
+        async with ctx.threadpool():
+            num_rows = 0
+            with self.csv_path.open() as csvfile:
                 reader = csv.reader(csvfile, delimiter='|')
                 for name, city, phone, email in reader:
                     num_rows += 1
-                    connection.execute(
+                    ctx.sql.execute(
                         people.insert().values(name=name, city=city, phone=phone, email=email))
 
         logger.info('Imported %d rows of data', num_rows)
-        asyncio.get_event_loop().stop()
 
 run_application(CSVImporterComponent(), logging=logging.DEBUG)

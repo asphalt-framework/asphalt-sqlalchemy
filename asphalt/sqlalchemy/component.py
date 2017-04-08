@@ -1,151 +1,157 @@
 import logging
 from concurrent.futures import Executor
-from typing import Dict, Any, Union
+from concurrent.futures.thread import ThreadPoolExecutor
+from functools import partial
+from typing import Dict, Any, Union, Optional
 
-from asphalt.core import Component, Context, resolve_reference, merge_config
+from async_generator import yield_
 from asyncio_extras.threads import call_in_executor
-from sqlalchemy.engine import create_engine, Engine
-from sqlalchemy.engine.interfaces import Connectable
+from sqlalchemy.engine import create_engine, Engine, Connection
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.sql.schema import MetaData
 from typeguard import check_argument_types
+
+from asphalt.core import Component, Context, merge_config, context_teardown
 
 logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyComponent(Component):
     """
-    Publishes one or more :class:`sqlalchemy.engine.Engine` resources and context variables.
+    Creates resources necessary for accessing relational databases using SQLAlchemy.
 
-    Unless sessions are disabled (``session=False``), it additionally publishes one
-    :class:`sqlalchemy.orm.session.sessionmaker` resource and one session (of type
-    :class:`sqlalchemy.orm.session.Session`) as a lazy resource.
+    This component will create the following resources:
+    
+    * one :class:`~sqlalchemy.engine.Connection` resource factory for each engine
+    * one :class:`~sqlalchemy.engine.Engine` resource for each engine
+    * one :class:`~sqlalchemy.orm.session.Session` resource factory
+    * one :class:`~sqlalchemy.orm.session.sessionmaker` resource
 
-    If only a single engine is defined, it will be bound to the session (if configured).
-    If multiple engines are defined, any calls to :meth:`~sqlalchemy.orm.session.Session.execute`
-    require the engine to be passed as the ``bind`` argument.
+    If exactly one engine has been specified, the session will use the corresponding connection
+    resource it for its database operations if no metadata has been specified.
 
-    If ``engines`` is defined, any extra keyword arguments are used as default values for
-    :meth:`configure_engine` for all engines (:func:`~asphalt.core.util.merge_config` is used to
-    merge the per-engine arguments with the defaults). Otherwise, a single engine is created based
-    on the provided default arguments, with ``context_attr`` defaulting to ``sql``.
+    Additionally, the :class:`~sqlalchemy.orm.session.sessionmaker` will be added to the context
+    as a resource to facilitate listening to session events on all created sessions.
+
+    Context attributes for connections and the session can be set with the ``context_attr`` option,
+    which is removed from the configuration before further processing.
+    By default, the session is available as ``ctx.dbsession``. If ``engines`` is not defined,
+    the default connection can be accessed as ``ctx.sql``. Otherwise, each connection will use the
+    resource name as the context attribute by default.
+
+    .. note:: The ``expire_on_commit`` option in sessions is hard coded to ``False``.
 
     :param engines: a dictionary of resource name ⭢ keyword arguments passed to
         :meth:`configure_engine`
-    :param session: either a boolean (``True`` enables the session with default settings, ``False``
-        skips session configuration) or a dictionary of session options, passed to
-        :meth:`configure_sessionmaker`
+    :param session: keyword arguments passed to :class:`~sqlalchemy.orm.session.sessionmaker`
+    :param commit_executor: an :class:`~concurrent.futures.Executor` or the resource name of one
+        (if not specified, a :class:`~concurrent.futures.ThreadPoolExecutor` with 5 workers is
+        created)
     :param default_engine_args: default values for :meth:`configure_engine`
     """
 
-    session_context_attr = sessionmaker = None
-
-    def __init__(self, engines: Dict[str, Dict[str, Any]] = None, session: Dict[str, Any] = True,
-                 **default_engine_args):
+    def __init__(self, engines: Dict[str, Dict[str, Any]] = None, session: Dict[str, Any] = None,
+                 commit_executor: Union[Executor, str] = None, **default_engine_args):
         assert check_argument_types()
         if not engines:
             default_engine_args.setdefault('context_attr', 'sql')
             engines = {'default': default_engine_args}
 
-        self.connectables = []
+        self.engines = []
         for resource_name, config in engines.items():
             config = merge_config(default_engine_args, config)
-            config.setdefault('context_attr', resource_name)
-            context_attr, bind = self.configure_engine(**config)
-            self.connectables.append((resource_name, context_attr, bind))
+            context_attr = config.pop('context_attr', resource_name)
+            engine = self.configure_engine(**config)
+            self.engines.append((resource_name, context_attr, engine))
 
-        if session is not False:
-            session = {} if session is True else session
-            if len(self.connectables) == 1:
-                session.setdefault('bind', self.connectables[0][-1])
-
-            self.session_context_attr, self.commit_executor, self.sessionmaker = \
-                self.configure_sessionmaker(**session)
-
-    @classmethod
-    def configure_sessionmaker(cls, context_attr: str = 'dbsession',
-                               commit_executor: Union[Executor, str] = None, **session_args):
-        """
-        Create the session factory.
-
-        :param context_attr: context attribute for lazily created sessions
-        :param commit_executor: thread pool executor or a resource name of one to use for the
-            automatic commit
-        :param session_args: keyword arguments passed directly to
-            :class:`~sqlalchemy.orm.session.sessionmaker`
-
-        """
-        assert check_argument_types()
-        return context_attr, commit_executor, sessionmaker(**session_args)
+        session = session or {}
+        session.setdefault('expire_on_commit', False)
+        self.session_connection = self.engines[0][0] if len(self.engines) == 1 else None
+        self.session_context_attr = session.pop('context_attr', 'dbsession')
+        self.sessionmaker = sessionmaker(**session)
+        self.commit_executor = commit_executor
 
     @classmethod
-    def configure_engine(cls, context_attr: str = None, metadata: Union[str, MetaData] = None,
-                         url: Union[str, URL, Dict[str, Any]] = None, bind: Connectable = None,
-                         **engine_args):
+    def configure_engine(cls, url: Union[str, URL, Dict[str, Any]], **engine_args):
         """
-        Create an engine and optionally bind it to a :class:`~sqlalchemy.schema.MetaData`.
+        Create an engine and selectively apply certain hacks to make it Asphalt friendly.
 
-        If both ``url`` and ``bind`` are provided, the ``bind`` parameter takes priority.
-
-        :param context_attr: context attribute for the engine
-        :param metadata: a metadata object to bind to
         :param url: the connection url passed to :func:`~sqlalchemy.create_engine`
             (can also be a dictionary of :class:`~sqlalchemy.engine.url.URL` keyword arguments)
-        :param bind: a connection or engine instance to use instead of creating a new engine
         :param engine_args: keyword arguments passed to :func:`~sqlalchemy.create_engine`
 
         """
         assert check_argument_types()
-        if url and not bind:
-            if isinstance(url, dict):
-                url = URL(**url)
-            elif isinstance(url, str):
-                url = make_url(url)
+        if isinstance(url, dict):
+            url = URL(**url)
+        elif isinstance(url, str):
+            url = make_url(url)
 
-            # This is a hack to get SQLite to play nice with asphalt-sqlalchemy's juggling of
-            # connections between multiple threads. The same connection should, however, never be
-            # used in multiple threads at once.
-            if url.drivername.split('+')[0] == 'sqlite':
-                connect_args = engine_args.setdefault('connect_args', {})
-                connect_args.setdefault('check_same_thread', False)
+        # This is a hack to get SQLite to play nice with asphalt-sqlalchemy's juggling of
+        # connections between multiple threads. The same connection should, however, never be
+        # used in multiple threads at once.
+        if url.get_dialect().name == 'sqlite':
+            connect_args = engine_args.setdefault('connect_args', {})
+            connect_args.setdefault('check_same_thread', False)
 
-            bind = create_engine(url, **engine_args)
-        elif not bind:
-            raise ValueError('specify either url or bind')
+        return create_engine(url, **engine_args)
 
-        if metadata:
-            metadata = resolve_reference(metadata)
-            assert isinstance(metadata, MetaData)
-            metadata.bind = bind
-
-        return context_attr, bind
-
-    def create_session(self, ctx: Context):
-        async def handler_finished(event):
+    def create_connection(self, ctx: Context, engine: Engine) -> Connection:
+        async def teardown_connection(exception: Optional[BaseException]) -> None:
             try:
-                if event.exception is None and session.is_active:
+                if exception is None:
+                    await call_in_executor(transaction.commit, executor=self.commit_executor)
+            finally:
+                del connection.info['ctx']
+                connection.close()
+
+        connection = engine.connect()
+        connection.info['ctx'] = ctx
+        transaction = connection.begin()
+        ctx.add_teardown_callback(teardown_connection, pass_exception=True)
+        return connection
+
+    def create_session(self, ctx: Context) -> Session:
+        async def teardown_session(exception: Optional[BaseException]) -> None:
+            try:
+                if exception is None and session.is_active:
                     await call_in_executor(session.commit, executor=self.commit_executor)
             finally:
-                session.close()
                 del session.info['ctx']
+                session.close()
 
-        session = self.sessionmaker(info={'ctx': ctx})
-        ctx.finished.connect(handler_finished)
+        connection = None
+        if self.session_connection:
+            connection = ctx.require_resource(Connection, self.session_connection)
+
+        session = self.sessionmaker(bind=connection, info={'ctx': ctx})
+        ctx.add_teardown_callback(teardown_session, pass_exception=True)
         return session
 
+    @context_teardown
     async def start(self, ctx: Context):
-        for resource_name, context_attr, bind in self.connectables:
-            ctx.publish_resource(bind, resource_name, context_attr, types=Engine)
+        if isinstance(self.commit_executor, str):
+            self.commit_executor = await ctx.request_resource(Executor, self.commit_executor)
+        elif self.commit_executor is None:
+            self.commit_executor = ThreadPoolExecutor(5)
+            ctx.add_teardown_callback(self.commit_executor.shutdown)
+
+        for resource_name, context_attr, engine in self.engines:
+            ctx.add_resource(engine, resource_name)
+            ctx.add_resource_factory(
+                partial(self.create_connection, engine=engine), [Connection], resource_name,
+                context_attr)
             logger.info('Configured SQLAlchemy engine (%s / ctx.%s; dialect=%s)', resource_name,
-                        context_attr, bind.dialect.name)
+                        context_attr, engine.dialect.name)
 
-        if self.sessionmaker:
-            if isinstance(self.commit_executor, str):
-                self.commit_executor = await ctx.request_resource(Executor, self.commit_executor)
+        ctx.add_resource(self.sessionmaker)
+        ctx.add_resource_factory(self.create_session, Session,
+                                 context_attr=self.session_context_attr)
+        logger.info('Configured SQLAlchemy session (default / ctx.%s)',
+                    self.session_context_attr)
 
-            ctx.publish_resource(self.sessionmaker)
-            ctx.publish_lazy_resource(self.create_session, Session,
-                                      context_attr=self.session_context_attr)
-            logger.info('Configured SQLAlchemy session (default / ctx.%s)',
-                        self.session_context_attr)
+        await yield_()
+
+        for resource_name, context_attr, engine in self.engines:
+            engine.dispose()
+            logger.info('SQLAlchemy engine (%s / ctx.%s) shut down', resource_name, context_attr)

@@ -10,7 +10,6 @@ In order to add a listener that applies to every ORM session created in the futu
 your listener in the :class:`~sqlalchemy.orm.session.sessionmaker` which is published by the
 SQLAlchemy component as a resource::
 
-    from asphalt.core.component import ContainerComponent
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import event
 
@@ -21,5 +20,6 @@ SQLAlchemy component as a resource::
 
 
     async def handler(ctx):
-        session_factory = await ctx.request_resource(sessionmaker)
+        session_factory = ctx.require_resource(sessionmaker)
         event.listen(session_factory, 'before_commit', precommit_hook)
+

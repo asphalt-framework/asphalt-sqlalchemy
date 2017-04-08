@@ -3,6 +3,27 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**3.0.0**
+
+- **BACKWARD INCOMPATIBLE** Migrated to Asphalt 3.0
+- **BACKWARD INCOMPATIBLE** Engines are now added to the context as ``Engine`` resources and
+  ``Connection`` resource factories. Connections start transactions which are automatically
+  committed when the context is torn down unless an uncaught exception ends the context.
+- **BACKWARD INCOMPATIBLE** The engine's context attribute (``ctx.sql`` by default) now points a
+  the resource factory that produces a ``Connection`` that autocommits and closes at context teardown
+- **BACKWARD INCOMPATIBLE** The component now longer accepts bare ``Connection`` objects to be
+  added as resources
+- **BACKWARD INCOMPATIBLE** The commit executor is now configured on the component level
+- An explicit commit executor is now always used (a new one will be created implicitly if none is
+  defined in the configuration)
+- **BACKWARD INCOMPATIBLE** Session configuration can no longer be disabled (no more
+  ``session=False``)
+- **BACKWARD INCOMPATIBLE** Engines can no longer be bound to ``MetaData`` objects
+- **BACKWARD INCOMPATIBLE** Renamed the ``asphalt.sqlalchemy.util`` module to
+  ``asphalt.sqlalchemy.utils``
+- **BACKWARD INCOMPATIBLE** The ``connect_test_database()`` function in the ``util`` module was
+  replaced with the ``clear_database()`` which has somewhat different semantics
+
 **2.1.3** (2017-02-11)
 
 - A better fix for the memory leak plugged in v2.1.2.

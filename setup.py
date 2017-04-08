@@ -32,7 +32,7 @@ setup(
         'setuptools_scm >= 1.7.0'
     ],
     install_requires=[
-        'asphalt ~= 2.0',
+        'asphalt ~= 3.0',
         'SQLAlchemy >= 1.0.10'
     ],
     extras_require={

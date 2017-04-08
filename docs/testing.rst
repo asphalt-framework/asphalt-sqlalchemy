@@ -27,61 +27,52 @@ They ensure that any changes made to the database are rolled back at the end of 
 
     import pytest
     from asphalt.core import ContainerComponent, Context
-    from asphalt.sqlalchemy.utils import connect_test_database
-    from sqlalchemy import create_engine
-    from sqlalchemy.schema import MetaData, DropConstraint
+    from asphalt.sqlalchemy.utils import clear_database
 
     from yourapp.models import Base, Person
 
 
-    @pytest.yield_fixture(scope='session')
-    def connection():
-        connection = connect_test_database('mysql://user:password@localhost/test'))
-        Base.metadata.create_all(connection)
-        yield connection
-        connection.close()
-
-
     @pytest.fixture(scope='session')
-    def root_component(connection):
-        # The trick here is to pass the connection to the SQLAlchemy component where it will be
-        # used in place of any implicitly created Engine
-        root = ContainerComponent():
-        root.add_component('sqlalchemy', bind=connection, metadata=Base.metadata)
+    def root_component():
+        root = ContainerComponent()
+        root.add_component('sqlalchemy')
         return root
 
 
-    @pytest.yield_fixture(scope='session')
+    @pytest.fixture(scope='session')
     def root_context(event_loop, root_component):
         # This is the top level context that remains open throughout the testing session
-        context = Context()
-        event_loop.run_until_complete(root_component.start(context))
-        yield context
-        event_loop.run_until_complete(context.finished.dispatch(None, return_future=True))
+        with Context() as context:
+            # Get the Engine resource for the default database connection
+            engine = context.require_resource(Engine)
+
+            # Remove tables and views left over from any previous testing session
+            clear_database(engine)
+
+            # Create the current tables
+            Base.metadata.create_all(engine)
+
+            # Add some base data to the database here (if necessary for your application)
+            with Context(context) as subcontext:
+                subcontext.dbsession.add(Person(name='Test person'))
+
+            yield context
 
 
-    @pytest.fixture(scope='session', autouse=True)
-    def base_data(event_loop, root_context):
-        # Add some base data to the database here (optional)
-        root_context.dbsession.add(Person(name='Test person'))
-        root_context.dbsession.flush()
-
-
-    @pytest.yield_fixture(autouse=True)
-    def transaction(connection):
-        # Make sure that no data sent to the database during the tests is ever persisted
-        transaction = connection.begin()
-        yield
-        transaction.rollback()
-
-
-    @pytest.yield_fixture
+    @pytest.fixture
     def context(root_context):
         # This is the test level context, created separately for each test
         # Test functions should inject this fixture and not root_context
-        context = Context(root_context)
-        yield context
-        event_loop.run_until_complete(context.finished.dispatch(None, return_future=True))
+        with Context(root_context) as context:
+            yield context
+
+
+    @pytest.fixture(autouse=True)
+    def transaction(context):
+        # Make sure that no data sent to the database during the tests is ever persisted
+        transaction = context.sql.begin()
+        yield
+        transaction.rollback()
 
 
 Connection setup, alternate method
@@ -94,7 +85,7 @@ this approach is slightly better performance.
 
 Assuming the same content as in the previous example, only these two fixtures need modifications::
 
-    @pytest.yield_fixture(scope='session')
+    @pytest.fixture(scope='session')
     def connection():
         engine = create_engine('postgresql:///testdb')
         with engine.connect() as connection
@@ -108,17 +99,6 @@ Assuming the same content as in the previous example, only these two fixtures ne
             transaction.rollback()
 
 
-    @pytest.yield_fixture(autouse=True)
-    def transaction(connection):
-        # This will create a savepoint within the transaction that was started in the
-        # "connection" fixture
-        transaction = connection.begin_nested()
-
-        yield
-
-        # This will roll the transaction back to the previously created savepoint
-        transaction.rollback()
-
-
 .. _py.test: http://pytest.org
+.. _transactional DDL: https://wiki.postgresql.org/wiki/Transactional_DDL_in_PostgreSQL:_A_Competitive_Analysis
 .. _PostgreSQL: http://www.postgresql.org/

@@ -1,22 +1,24 @@
 import gc
 from concurrent.futures import Executor, ThreadPoolExecutor
-from contextlib import closing
 
 import pytest
-from asphalt.core.context import Context, ResourceNotFound
-from sqlalchemy.engine.base import Engine
+from asphalt.core.context import Context
+from sqlalchemy import create_engine
+from sqlalchemy.engine.base import Engine, Connection
 from sqlalchemy.orm.session import sessionmaker, Session
-from sqlalchemy.sql.schema import MetaData
+from sqlalchemy.pool import NullPool
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
-from asphalt.sqlalchemy.util import connect_test_database
 
 
 @pytest.fixture
 def connection():
-    with closing(connect_test_database('sqlite:///')) as connection:
-        connection.execute('CREATE TABLE foo (id INTEGER PRIMARY KEY)')
-        yield connection
+    engine = create_engine('sqlite:///:memory:')
+    connection = engine.connect()
+    connection.execute('CREATE TABLE foo (id INTEGER PRIMARY KEY)')
+    yield connection
+    connection.close()
+    engine.dispose()
 
 
 @pytest.fixture
@@ -26,38 +28,33 @@ def executor():
     pool.shutdown()
 
 
-@pytest.mark.parametrize('session', [True, False])
 @pytest.mark.asyncio
-async def test_component_start(session):
-    metadata = MetaData()
-    component = SQLAlchemyComponent(url='sqlite://', metadata=metadata, session=session)
+async def test_component_start():
+    """Test that the component creates all the expected resources."""
+    component = SQLAlchemyComponent(url='sqlite:///:memory:')
     async with Context() as ctx:
         await component.start(ctx)
 
-        engine = await ctx.request_resource(Engine)
-        assert ctx.sql is engine
-        assert metadata.bind is engine
+        ctx.require_resource(Engine)
+        assert ctx.sql is ctx.require_resource(Connection)
 
-        if session:
-            maker = await ctx.request_resource(sessionmaker, timeout=0)
-            assert isinstance(maker, sessionmaker)
-            assert isinstance(ctx.dbsession, Session)
-            assert ctx.dbsession.bind is ctx.sql
-        else:
-            with pytest.raises(ResourceNotFound):
-                await ctx.request_resource(sessionmaker, timeout=0)
-
-            assert not hasattr(ctx, 'dbsession')
+        ctx.require_resource(sessionmaker)
+        assert isinstance(ctx.dbsession, Session)
+        assert ctx.dbsession.bind is ctx.sql
 
 
 @pytest.mark.asyncio
 async def test_multiple_engines():
-    component = SQLAlchemyComponent(engines={'db1': {}, 'db2': {}}, url='sqlite://')
+    component = SQLAlchemyComponent(engines={'db1': {}, 'db2': {}}, url='sqlite:///:memory:')
     async with Context() as ctx:
         await component.start(ctx)
 
-        assert isinstance(ctx.db1, Engine)
-        assert isinstance(ctx.db2, Engine)
+        ctx.require_resource(Engine, 'db1')
+        ctx.require_resource(Engine, 'db2')
+        conn1 = ctx.require_resource(Connection, 'db1')
+        conn2 = ctx.require_resource(Connection, 'db2')
+        assert ctx.db1 is conn1
+        assert ctx.db2 is conn2
         assert ctx.dbsession.bind is None
 
 
@@ -72,24 +69,20 @@ async def test_finish_commit(raise_exception, executor, commit_executor, tmpdir)
 
     """
     db_path = tmpdir.join('test.db')
-    session = dict(commit_executor=executor if commit_executor == 'instance' else commit_executor)
-    component = SQLAlchemyComponent(url={'drivername': 'sqlite', 'database': str(db_path)},
-                                    session=session)
+    engine = create_engine('sqlite:///%s' % db_path, poolclass=NullPool)
+    engine.execute('CREATE TABLE foo (id INTEGER PRIMARY KEY)')
+
+    component = SQLAlchemyComponent(
+        url={'drivername': 'sqlite', 'database': str(db_path)},
+        commit_executor=executor if commit_executor == 'instance' else commit_executor)
     ctx = Context()
-    ctx.publish_resource(executor, types=[Executor])
+    ctx.add_resource(executor, types=[Executor])
     await component.start(ctx)
-    ctx.dbsession.execute('CREATE TABLE foo (id INTEGER PRIMARY KEY)')
     ctx.dbsession.execute('INSERT INTO foo (id) VALUES(3)')
-    await ctx.finished.dispatch(Exception('dummy') if raise_exception else None,
-                                return_future=True)
+    await ctx.close(Exception('dummy') if raise_exception else None)
 
-    rows = ctx.sql.execute('SELECT * FROM foo').fetchall()
+    rows = engine.execute('SELECT * FROM foo').fetchall()
     assert len(rows) == (0 if raise_exception else 1)
-
-
-def test_missing_url_bind():
-    exc = pytest.raises(ValueError, SQLAlchemyComponent)
-    assert str(exc.value) == 'specify either url or bind'
 
 
 @pytest.mark.asyncio
