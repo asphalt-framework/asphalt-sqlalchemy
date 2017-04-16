@@ -3,7 +3,7 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
-**3.0.0**
+**3.0.0** (2017-04-16)
 
 - **BACKWARD INCOMPATIBLE** Migrated to Asphalt 3.0
 - **BACKWARD INCOMPATIBLE** Engine resources are no longer directly accessible as context
