@@ -12,6 +12,7 @@ Table of contents
    usage
    events
    testing
+   tips_tricks
    versionhistory
 
 * :ref:`API reference <modindex>`
