@@ -45,7 +45,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         # Create the table in a subcontext – never use connections or sessions from a long lived
         # context!
         async with Context(ctx):
-            Base.metadata.create_all(ctx.sql)
+            Base.metadata.create_all(ctx.sql.bind)
 
     async def run(self, ctx: Context):
         async with ctx.threadpool():
@@ -54,10 +54,10 @@ class CSVImporterComponent(CLIApplicationComponent):
                 reader = csv.reader(csvfile, delimiter='|')
                 for name, city, phone, email in reader:
                     num_rows += 1
-                    ctx.dbsession.add(Person(name=name, city=city, phone=phone, email=email))
+                    ctx.sql.add(Person(name=name, city=city, phone=phone, email=email))
 
             # Emit pending INSERTs (though this would happen when the context ends anyway)
-            ctx.dbsession.flush()
+            ctx.sql.flush()
 
         logger.info('Imported %d rows of data', num_rows)
 

@@ -42,20 +42,19 @@ They ensure that any changes made to the database are rolled back at the end of 
     @pytest.fixture(scope='session')
     def root_context(event_loop, root_component):
         # This is the top level context that remains open throughout the testing session
-        with Context() as context:
-            # Get the Engine resource for the default database connection
-            engine = context.require_resource(Engine)
+        with Context() as root_ctx:
+            # Run all database operations in a short lived context!
+            with Context(root_ctx) as ctx:
+                # Remove tables and views left over from any previous testing session
+                clear_database(ctx.sql.bind)
 
-            # Remove tables and views left over from any previous testing session
-            clear_database(engine)
+                # Create the current tables
+                Base.metadata.create_all(ctx.sql.bind)
 
-            # Create the current tables
-            Base.metadata.create_all(engine)
+                # Add some base data to the database here (if necessary for your application)
+                ctx.sql.add(Person(name='Test person'))
 
-            # Add some base data to the database here (if necessary for your application)
-            with Context(context) as subcontext:
-                subcontext.dbsession.add(Person(name='Test person'))
-
+            # When you "yield" inside a with: block, the block won't end until the yield returns
             yield context
 
 
@@ -63,8 +62,8 @@ They ensure that any changes made to the database are rolled back at the end of 
     def context(root_context):
         # This is the test level context, created separately for each test
         # Test functions should inject this fixture and not root_context
-        with Context(root_context) as context:
-            yield context
+        with Context(root_context) as ctx:
+            yield ctx
 
 
     @pytest.fixture(autouse=True)

@@ -33,6 +33,7 @@ If you're not familiar with SQLAlchemy's core functionality, you should take a l
 Here's how the above example would work using core queries::
 
     async def handler(ctx):
+        # Database queries can block the event loop, so run this in a thread pool
         async with ctx.threadpool():
             parent_id = ctx.sql.scalar(select([people.c.id]).where(name='Senior'))
             ctx.sql.execute(people.insert().values(name='Junior'))
@@ -47,13 +48,12 @@ Working with the Object Relational Mapper (ORM)
 If you're not familiar with SQLAlchemy's ORM, you should look through the
 `Object Relational Tutorial`_ first.
 
-    async def handler(ctx):
-        # Database queries can block the event loop, so run this in a thread pool
-        async with ctx.threadpool():
-            parent = ctx.dbsession.query(Person).filter_by(name='Senior').one()
-            parent.children.append(Person(name='Junior'))
+The previous example would look like this, rewritten for the ORM::
 
-        # Commit happens automatically when the context is torn down
+    async def handler(ctx):
+        async with ctx.threadpool():
+            parent = ctx.sql.query(Person).filter_by(name='Senior').one()
+            parent.children.append(Person(name='Junior'))
 
 .. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
 
@@ -71,6 +71,6 @@ application::
         async def start(ctx):
             # ctx here is the root context
             async with Context(ctx) as subctx:
-                self.employees = ctx.dbsession.query(Employee).all()
+                self.employees = subctx.sql.query(Employee).all()
 
 The connection and session will be automatically closed once the context manager block is exited.

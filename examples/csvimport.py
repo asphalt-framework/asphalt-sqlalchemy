@@ -42,7 +42,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         # Create the table in a subcontext – never use connections or sessions from a long lived
         # context!
         async with Context(ctx):
-            metadata.create_all(ctx.sql)
+            metadata.create_all(ctx.sql.bind)
 
     async def run(self, ctx: Context):
         async with ctx.threadpool():

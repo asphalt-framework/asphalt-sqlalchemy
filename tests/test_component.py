@@ -4,7 +4,7 @@ from concurrent.futures import Executor, ThreadPoolExecutor
 import pytest
 from asphalt.core.context import Context
 from sqlalchemy import create_engine
-from sqlalchemy.engine.base import Engine, Connection
+from sqlalchemy.engine.base import Engine
 from sqlalchemy.orm.session import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 
@@ -35,12 +35,10 @@ async def test_component_start():
     async with Context() as ctx:
         await component.start(ctx)
 
-        ctx.require_resource(Engine)
-        assert ctx.sql is ctx.require_resource(Connection)
-
+        engine = ctx.require_resource(Engine)
         ctx.require_resource(sessionmaker)
-        assert isinstance(ctx.dbsession, Session)
-        assert ctx.dbsession.bind is ctx.sql
+        assert ctx.sql is ctx.require_resource(Session)
+        assert ctx.sql.bind is engine
 
 
 @pytest.mark.asyncio
@@ -49,13 +47,10 @@ async def test_multiple_engines():
     async with Context() as ctx:
         await component.start(ctx)
 
-        ctx.require_resource(Engine, 'db1')
-        ctx.require_resource(Engine, 'db2')
-        conn1 = ctx.require_resource(Connection, 'db1')
-        conn2 = ctx.require_resource(Connection, 'db2')
-        assert ctx.db1 is conn1
-        assert ctx.db2 is conn2
-        assert ctx.dbsession.bind is None
+        engine1 = ctx.require_resource(Engine, 'db1')
+        engine2 = ctx.require_resource(Engine, 'db2')
+        assert ctx.db1.bind is engine1
+        assert ctx.db2.bind is engine2
 
 
 @pytest.mark.parametrize('raise_exception', [False, True])
@@ -78,7 +73,7 @@ async def test_finish_commit(raise_exception, executor, commit_executor, tmpdir)
     ctx = Context()
     ctx.add_resource(executor, types=[Executor])
     await component.start(ctx)
-    ctx.dbsession.execute('INSERT INTO foo (id) VALUES(3)')
+    ctx.sql.execute('INSERT INTO foo (id) VALUES(3)')
     await ctx.close(Exception('dummy') if raise_exception else None)
 
     rows = engine.execute('SELECT * FROM foo').fetchall()
@@ -91,7 +86,7 @@ async def test_memory_leak():
     component = SQLAlchemyComponent(url='sqlite:///:memory:')
     async with Context() as ctx:
         await component.start(ctx)
-        assert isinstance(ctx.dbsession, Session)
+        assert isinstance(ctx.sql, Session)
 
     del ctx
     gc.collect()  # needed on PyPy

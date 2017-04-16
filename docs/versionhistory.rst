@@ -6,11 +6,9 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 **3.0.0**
 
 - **BACKWARD INCOMPATIBLE** Migrated to Asphalt 3.0
-- **BACKWARD INCOMPATIBLE** Engines are now added to the context as ``Engine`` resources and
-  ``Connection`` resource factories. Connections start transactions which are automatically
-  committed when the context is torn down unless an uncaught exception ends the context.
-- **BACKWARD INCOMPATIBLE** The engine's context attribute (``ctx.sql`` by default) now points a
-  the resource factory that produces a ``Connection`` that autocommits and closes at context teardown
+- **BACKWARD INCOMPATIBLE** Engine resources are no longer directly accessible as context
+  variables. Instead, every engine gets its own session and can be accessed via the session's
+  ``bind`` variable.
 - **BACKWARD INCOMPATIBLE** The component now longer accepts bare ``Connection`` objects to be
   added as resources
 - **BACKWARD INCOMPATIBLE** The commit executor is now configured on the component level
