@@ -1,0 +1,28 @@
+# Docker-like setup that serves as a local drop-in for the corresponding Travis services
+version: "2"
+services:
+  test:
+    build: .
+    user: 1000:1000
+    links:
+      - mysql
+      - postgresql
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      MYSQL_URL: mysql+cymysql://root@mysql/asphalttest
+      POSTGRESQL_URL: postgresql://travis@postgresql/asphalttest
+    command: tox -e py35
+
+  mysql:
+    image: mysql
+    environment:
+      MYSQL_DATABASE: asphalttest
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+
+  postgresql:
+    image: postgres
+    environment:
+      POSTGRES_USER: travis
+      POSTGRES_DB: asphalttest
