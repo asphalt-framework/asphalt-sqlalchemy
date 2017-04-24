@@ -13,7 +13,6 @@ services:
     environment:
       MYSQL_URL: mysql+cymysql://root@mysql/asphalttest
       POSTGRESQL_URL: postgresql://travis@postgresql/asphalttest
-    command: tox -e py35
 
   mysql:
     image: mysql
