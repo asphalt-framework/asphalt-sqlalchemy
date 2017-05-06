@@ -2,7 +2,6 @@ import os
 from typing import Iterable
 
 from sqlalchemy.engine import Engine
-from sqlalchemy.sql.ddl import DropConstraint
 from sqlalchemy.sql.schema import MetaData
 from typeguard import check_argument_types
 
@@ -31,11 +30,5 @@ def clear_database(engine: Engine, schemas: Iterable[str] = ()) -> None:
             metadata.reflect(engine, schema=schema, views=True)
             metadatas.append(metadata)
 
-            # Drop all the foreign key constraints so we can drop the tables in any order
-            for table in metadata.tables.values():
-                for fk in table.foreign_keys:
-                    engine.execute(DropConstraint(fk.constraint))
-
-        # Drop the tables
         for metadata in metadatas:
-            metadata.drop_all(engine)
+            metadata.drop_all(engine, checkfirst=False)

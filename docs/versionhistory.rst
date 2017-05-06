@@ -3,6 +3,13 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**3.0.1** (2017-05-06)
+
+- Fixed ``clear_database()`` causing an SQLAlchemy error when ``metadata.drop_all()`` tries to drop
+  constraints that ``clear_database()`` has already dropped
+- Sped up ``clear_database()`` a bit by not checking for the presence of tables when dropping them
+  right after reflecting the metadata
+
 **3.0.0** (2017-04-16)
 
 - **BACKWARD INCOMPATIBLE** Migrated to Asphalt 3.0
