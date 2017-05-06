@@ -4,7 +4,7 @@ Using SQLAlchemy events with Asphalt
 While asphalt-sqlalchemy does not provide support for Asphalt style events at this time, you can
 still listen to the native SQLAlchemy events. Limited support is provided for interacting with the
 context from **session events**. Every ORM session object will have its associated session object
-stored in its ``info`` dictionary (``ctx.dbsession.info['ctx'] is ctx.dbsession``).
+stored in its ``info`` dictionary (``ctx.sql.info['ctx'] is ctx``).
 
 In order to add a listener that applies to every ORM session created in the future, you can add
 your listener in the :class:`~sqlalchemy.orm.session.sessionmaker` which is published by the
