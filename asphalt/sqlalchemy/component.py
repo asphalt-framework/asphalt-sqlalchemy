@@ -6,7 +6,7 @@ from typing import Dict, Any, Union, Optional, Callable
 
 from async_generator import yield_
 from asyncio_extras.threads import call_in_executor
-from sqlalchemy.engine import create_engine, Engine
+from sqlalchemy.engine import create_engine, Engine, Connection
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import sessionmaker, Session
 from typeguard import check_argument_types
@@ -58,15 +58,16 @@ class SQLAlchemyComponent(Component):
         for resource_name, config in engines.items():
             config = merge_config(default_args, config)
             context_attr = config.pop('context_attr', resource_name)
-            engine, session_factory, ready_callback = self.configure_engine(**config)
+            bind, session_factory, ready_callback = self.configure_engine(**config)
             self.session_factories.append(
-                (resource_name, context_attr, engine, session_factory, ready_callback))
+                (resource_name, context_attr, bind, session_factory, ready_callback))
 
         self.commit_executor = commit_executor
         self.commit_executor_workers = commit_executor_workers
 
     @classmethod
-    def configure_engine(cls, url: Union[str, URL, Dict[str, Any]], session: Dict[str, Any] = None,
+    def configure_engine(cls, url: Union[str, URL, Dict[str, Any]] = None,
+                         bind: Union[Connection, Engine] = None, session: Dict[str, Any] = None,
                          ready_callback: Union[Callable[[Engine, sessionmaker], Any], str] = None,
                          **engine_args):
         """
@@ -74,6 +75,7 @@ class SQLAlchemyComponent(Component):
 
         :param url: the connection url passed to :func:`~sqlalchemy.create_engine`
             (can also be a dictionary of :class:`~sqlalchemy.engine.url.URL` keyword arguments)
+        :param bind: a connection or engine to use instead of creating a new engine
         :param session: keyword arguments to :class:`~sqlalchemy.orm.session.sessionmaker`
         :param ready_callback: callable (or a ``module:varname`` reference to one) called with two
             arguments: the Engine and the sessionmaker when the component is started but before the
@@ -82,23 +84,27 @@ class SQLAlchemyComponent(Component):
 
         """
         assert check_argument_types()
-        if isinstance(url, dict):
-            url = URL(**url)
-        elif isinstance(url, str):
-            url = make_url(url)
+        if bind is None:
+            if isinstance(url, dict):
+                url = URL(**url)
+            elif isinstance(url, str):
+                url = make_url(url)
+            elif url is None:
+                raise TypeError('both "url" and "bind" cannot be None')
 
-        # This is a hack to get SQLite to play nice with asphalt-sqlalchemy's juggling of
-        # connections between multiple threads. The same connection should, however, never be
-        # used in multiple threads at once.
-        if url.get_dialect().name == 'sqlite':
-            connect_args = engine_args.setdefault('connect_args', {})
-            connect_args.setdefault('check_same_thread', False)
+            # This is a hack to get SQLite to play nice with asphalt-sqlalchemy's juggling of
+            # connections between multiple threads. The same connection should, however, never be
+            # used in multiple threads at once.
+            if url.get_dialect().name == 'sqlite':
+                connect_args = engine_args.setdefault('connect_args', {})
+                connect_args.setdefault('check_same_thread', False)
 
-        engine = create_engine(url, **engine_args)
+            bind = create_engine(url, **engine_args)
+
         session = session or {}
         session.setdefault('expire_on_commit', False)
         ready_callback = resolve_reference(ready_callback)
-        return engine, sessionmaker(engine, **session), ready_callback
+        return bind, sessionmaker(bind, **session), ready_callback
 
     def create_session(self, ctx: Context, factory: sessionmaker) -> Session:
         async def teardown_session(exception: Optional[BaseException]) -> None:
@@ -121,22 +127,25 @@ class SQLAlchemyComponent(Component):
             self.commit_executor = ThreadPoolExecutor(self.commit_executor_workers)
             ctx.add_teardown_callback(self.commit_executor.shutdown)
 
-        for resource_name, context_attr, engine, factory, ready_callback in self.session_factories:
+        for resource_name, context_attr, bind, factory, ready_callback in self.session_factories:
             if ready_callback:
-                retval = ready_callback(engine, factory)
+                retval = ready_callback(bind, factory)
                 if isawaitable(retval):
                     await retval
 
+            engine = bind if isinstance(bind, Engine) else bind.engine
             ctx.add_resource(engine, resource_name)
             ctx.add_resource(factory, resource_name)
             ctx.add_resource_factory(partial(self.create_session, factory=factory),
                                      [Session], resource_name, context_attr)
             logger.info('Configured SQLAlchemy session maker (%s / ctx.%s; dialect=%s)',
-                        resource_name, context_attr, engine.dialect.name)
+                        resource_name, context_attr, bind.dialect.name)
 
         await yield_()
 
-        for resource_name, context_attr, engine, factory, ready_callback in self.session_factories:
-            engine.dispose()
+        for resource_name, context_attr, bind, factory, ready_callback in self.session_factories:
+            if isinstance(bind, Engine):
+                bind.dispose()
+
             logger.info('SQLAlchemy session maker (%s / ctx.%s) shut down', resource_name,
                         context_attr)

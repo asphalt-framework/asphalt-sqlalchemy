@@ -78,6 +78,24 @@ async def test_ready_callback(asynchronous):
         assert factory is factory2
 
 
+@pytest.mark.asyncio
+async def test_bind():
+    """Test that a Connection can be passed as "bind" in place of "url"."""
+    engine = create_engine('sqlite:///:memory:')
+    connection = engine.connect()
+    component = SQLAlchemyComponent(bind=connection)
+    async with Context() as ctx:
+        await component.start(ctx)
+
+        assert ctx.require_resource(Engine) is engine
+        assert ctx.sql.bind is connection
+
+
+def test_no_url_or_bind():
+    exc = pytest.raises(TypeError, SQLAlchemyComponent)
+    exc.match('both "url" and "bind" cannot be None')
+
+
 @pytest.mark.parametrize('raise_exception', [False, True])
 @pytest.mark.parametrize('commit_executor', [None, 'default', 'instance'],
                          ids=['none', 'default', 'instance'])
