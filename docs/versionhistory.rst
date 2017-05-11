@@ -8,6 +8,7 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 - Allowed the ``engine`` argument to ``clear_database()`` to be a ``Connection``
 - Added the ``ready_callback`` option to engine configuration (should be handy for creating tables
   or doing schema migrations)
+- Fixed cleanup failing if the session factory has had its bind replaced with a ``Connection``
 
 **3.0.1** (2017-05-06)
 

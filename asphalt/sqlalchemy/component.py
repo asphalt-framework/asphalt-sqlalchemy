@@ -58,9 +58,9 @@ class SQLAlchemyComponent(Component):
         for resource_name, config in engines.items():
             config = merge_config(default_args, config)
             context_attr = config.pop('context_attr', resource_name)
-            session_factory, ready_callback = self.configure_engine(**config)
+            engine, session_factory, ready_callback = self.configure_engine(**config)
             self.session_factories.append(
-                (resource_name, context_attr, session_factory, ready_callback))
+                (resource_name, context_attr, engine, session_factory, ready_callback))
 
         self.commit_executor = commit_executor
         self.commit_executor_workers = commit_executor_workers
@@ -98,7 +98,7 @@ class SQLAlchemyComponent(Component):
         session = session or {}
         session.setdefault('expire_on_commit', False)
         ready_callback = resolve_reference(ready_callback)
-        return sessionmaker(engine, **session), ready_callback
+        return engine, sessionmaker(engine, **session), ready_callback
 
     def create_session(self, ctx: Context, factory: sessionmaker) -> Session:
         async def teardown_session(exception: Optional[BaseException]) -> None:
@@ -121,9 +121,7 @@ class SQLAlchemyComponent(Component):
             self.commit_executor = ThreadPoolExecutor(self.commit_executor_workers)
             ctx.add_teardown_callback(self.commit_executor.shutdown)
 
-        for resource_name, context_attr, factory, ready_callback in self.session_factories:
-            engine = factory.kw['bind']
-
+        for resource_name, context_attr, engine, factory, ready_callback in self.session_factories:
             if ready_callback:
                 retval = ready_callback(engine, factory)
                 if isawaitable(retval):
@@ -134,11 +132,11 @@ class SQLAlchemyComponent(Component):
             ctx.add_resource_factory(partial(self.create_session, factory=factory),
                                      [Session], resource_name, context_attr)
             logger.info('Configured SQLAlchemy session maker (%s / ctx.%s; dialect=%s)',
-                        resource_name, context_attr, factory.kw['bind'].dialect.name)
+                        resource_name, context_attr, engine.dialect.name)
 
         await yield_()
 
-        for resource_name, context_attr, factory, ready_callback in self.session_factories:
-            factory.kw['bind'].dispose()
+        for resource_name, context_attr, engine, factory, ready_callback in self.session_factories:
+            engine.dispose()
             logger.info('SQLAlchemy session maker (%s / ctx.%s) shut down', resource_name,
                         context_attr)
