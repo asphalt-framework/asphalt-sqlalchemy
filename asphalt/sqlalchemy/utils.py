@@ -1,19 +1,19 @@
 import os
-from typing import Iterable
+from typing import Iterable, Union
 
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, Connection
 from sqlalchemy.sql.schema import MetaData
 from typeguard import check_argument_types
 
 
-def clear_database(engine: Engine, schemas: Iterable[str] = ()) -> None:
+def clear_database(engine: Union[Engine, Connection], schemas: Iterable[str] = ()) -> None:
     """
     Clear any tables from an existing database.
 
     For SQLite engines, the target database file will be deleted and a new one is created in its
     place.
 
-    :param engine: the engine to use
+    :param engine: the engine or connection to use
     :param schemas: full list of schema names to expect (ignored for SQLite)
 
     """
