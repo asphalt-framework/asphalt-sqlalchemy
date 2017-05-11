@@ -6,6 +6,8 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 **3.1.0**
 
 - Allowed the ``engine`` argument to ``clear_database()`` to be a ``Connection``
+- Added the ``ready_callback`` option to engine configuration (should be handy for creating tables
+  or doing schema migrations)
 
 **3.0.1** (2017-05-06)
 

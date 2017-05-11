@@ -53,6 +53,31 @@ async def test_multiple_engines():
         assert ctx.db2.bind is engine2
 
 
+@pytest.mark.parametrize('asynchronous', [False, True], ids=['sync', 'async'])
+@pytest.mark.asyncio
+async def test_ready_callback(asynchronous):
+    def ready_callback(engine, factory):
+        nonlocal engine2, factory2
+        engine2 = engine
+        factory2 = factory
+
+    async def ready_callback_async(engine, factory):
+        nonlocal engine2, factory2
+        engine2 = engine
+        factory2 = factory
+
+    engine2 = factory2 = None
+    callback = ready_callback_async if asynchronous else ready_callback
+    component = SQLAlchemyComponent(url='sqlite:///:memory:', ready_callback=callback)
+    async with Context() as ctx:
+        await component.start(ctx)
+
+        engine = ctx.require_resource(Engine)
+        factory = ctx.require_resource(sessionmaker)
+        assert engine is engine2
+        assert factory is factory2
+
+
 @pytest.mark.parametrize('raise_exception', [False, True])
 @pytest.mark.parametrize('commit_executor', [None, 'default', 'instance'],
                          ids=['none', 'default', 'instance'])
