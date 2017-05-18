@@ -73,6 +73,6 @@ They ensure that any changes made to the database are rolled back at the end of 
             # Make sure that no data sent to the database during the tests is ever persisted
             connection = context.sql.bind.begin()
             yield ctx
-            connection.close()
+            connection.transaction.close()
 
 .. _py.test: http://pytest.org
