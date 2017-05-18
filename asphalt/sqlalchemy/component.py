@@ -9,6 +9,7 @@ from asyncio_extras.threads import call_in_executor
 from sqlalchemy.engine import create_engine, Engine, Connection
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import Pool
 from typeguard import check_argument_types
 
 from asphalt.core import Component, Context, merge_config, context_teardown, resolve_reference
@@ -69,6 +70,7 @@ class SQLAlchemyComponent(Component):
     def configure_engine(cls, url: Union[str, URL, Dict[str, Any]] = None,
                          bind: Union[Connection, Engine] = None, session: Dict[str, Any] = None,
                          ready_callback: Union[Callable[[Engine, sessionmaker], Any], str] = None,
+                         poolclass: Union[str, Pool] = None,
                          **engine_args):
         """
         Create an engine and selectively apply certain hacks to make it Asphalt friendly.
@@ -80,6 +82,8 @@ class SQLAlchemyComponent(Component):
         :param ready_callback: callable (or a ``module:varname`` reference to one) called with two
             arguments: the Engine and the sessionmaker when the component is started but before the
             resources are added to the context
+        :param poolclass: the SQLAlchemy Pool class to use; passed to
+            :func:`~sqlalchemy.create_engine`
         :param engine_args: keyword arguments passed to :func:`~sqlalchemy.create_engine`
 
         """
@@ -91,6 +95,8 @@ class SQLAlchemyComponent(Component):
                 url = make_url(url)
             elif url is None:
                 raise TypeError('both "url" and "bind" cannot be None')
+            if isinstance(poolclass, str):
+                poolclass = resolve_reference(poolclass)
 
             # This is a hack to get SQLite to play nice with asphalt-sqlalchemy's juggling of
             # connections between multiple threads. The same connection should, however, never be
@@ -99,7 +105,7 @@ class SQLAlchemyComponent(Component):
                 connect_args = engine_args.setdefault('connect_args', {})
                 connect_args.setdefault('check_same_thread', False)
 
-            bind = create_engine(url, **engine_args)
+            bind = create_engine(url, poolclass=poolclass, **engine_args)
 
         session = session or {}
         session.setdefault('expire_on_commit', False)
