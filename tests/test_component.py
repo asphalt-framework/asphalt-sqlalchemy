@@ -29,9 +29,10 @@ def executor():
 
 
 @pytest.mark.asyncio
-async def test_component_start():
+@pytest.mark.parametrize('poolclass', [None, 'sqlalchemy.pool:StaticPool'])
+async def test_component_start(poolclass):
     """Test that the component creates all the expected resources."""
-    component = SQLAlchemyComponent(url='sqlite:///:memory:')
+    component = SQLAlchemyComponent(url='sqlite:///:memory:', poolclass=poolclass)
     async with Context() as ctx:
         await component.start(ctx)
 
