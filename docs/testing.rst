@@ -27,7 +27,7 @@ They ensure that any changes made to the database are rolled back at the end of 
 
     import pytest
     from asphalt.core import ContainerComponent, Context
-    from asphalt.sqlalchemy.utils import clear_database
+    from asphalt.sqlalchemy import clear_database
 
     from yourapp.component import ApplicationComponent
     from yourapp.models import Base, Person
@@ -37,7 +37,7 @@ They ensure that any changes made to the database are rolled back at the end of 
     def root_context(event_loop):
         # This is the top level context that remains open throughout the testing session
         with Context() as root_ctx:
-            yield root_ctx
+            yield context
 
 
     @pytest.fixture(scope='session')
@@ -73,6 +73,6 @@ They ensure that any changes made to the database are rolled back at the end of 
             # Make sure that no data sent to the database during the tests is ever persisted
             connection = context.sql.bind.begin()
             yield ctx
-            connection.transaction.close()
+            connection.close()
 
 .. _py.test: http://pytest.org
