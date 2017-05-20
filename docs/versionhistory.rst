@@ -9,6 +9,8 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 - Added the ``ready_callback`` option to engine configuration (should be handy for creating tables
   or doing schema migrations)
 - Restored the ability to pass a ``Connection`` as the ``bind`` configuration option
+- Made the ``poolclass`` engine option passable as a ``module:varname`` reference
+  (contributed by Devin Fee)
 
 **3.0.1** (2017-05-06)
 
