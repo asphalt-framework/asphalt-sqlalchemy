@@ -39,13 +39,9 @@ class CSVImporterComponent(CLIApplicationComponent):
         if db_path.exists():
             db_path.unlink()
 
-        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path))
+        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path),
+                           ready_callback=lambda bind, factory: Base.metadata.create_all(bind))
         await super().start(ctx)
-
-        # Create the table in a subcontext – never use connections or sessions from a long lived
-        # context!
-        async with Context(ctx):
-            Base.metadata.create_all(ctx.sql.bind)
 
     async def run(self, ctx: Context):
         async with ctx.threadpool():
