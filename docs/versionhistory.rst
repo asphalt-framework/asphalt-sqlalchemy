@@ -11,6 +11,7 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 - Restored the ability to pass a ``Connection`` as the ``bind`` configuration option
 - Made the ``poolclass`` engine option passable as a ``module:varname`` reference
   (contributed by Devin Fee)
+- Added compatibility with Asphalt 4.0
 
 **3.0.1** (2017-05-06)
 
