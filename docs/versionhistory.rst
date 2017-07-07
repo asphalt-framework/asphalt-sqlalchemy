@@ -5,12 +5,13 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
 **3.1.0**
 
-- Allowed the ``engine`` argument to ``clear_database()`` to be a ``Connection``
+- Allowed the ``engine`` argument to ``clear_database()`` to be any ``Connectable``
 - Added the ``ready_callback`` option to engine configuration (should be handy for creating tables
   or doing schema migrations)
 - Restored the ability to pass a ``Connection`` as the ``bind`` configuration option
 - Made the ``poolclass`` engine option passable as a ``module:varname`` reference
   (contributed by Devin Fee)
+- Improved the testing recipe and added tests for it
 - Added compatibility with Asphalt 4.0
 
 **3.0.1** (2017-05-06)

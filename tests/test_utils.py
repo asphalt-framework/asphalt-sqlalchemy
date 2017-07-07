@@ -1,28 +1,14 @@
-from sqlalchemy import create_engine
+import pytest
 from sqlalchemy.sql.ddl import DropSchema, CreateSchema
 from sqlalchemy.sql.schema import MetaData, Table, Column, ForeignKey
 from sqlalchemy.sql.sqltypes import Integer
-import pytest
 
 from asphalt.sqlalchemy.utils import clear_database
 
 
-@pytest.fixture(params=['sqlite-file', 'sqlite-memory', 'mysql', 'postgresql'])
-def engine(request, tmpdir_factory):
-    engine = None
-    if request.param == 'sqlite-file':
-        tmpdir = tmpdir_factory.mktemp('asphalt-sqlalchemy')
-        db_path = str(tmpdir.join('test.db'))
-        engine = create_engine('sqlite:///' + db_path)
-    elif request.param == 'sqlite-memory':
-        engine = create_engine('sqlite:///:memory:')
-    elif request.param == 'mysql':
-        url = request.getfixturevalue('mysql_url')
-        engine = create_engine(url)
-    elif request.param == 'postgresql':
-        url = request.getfixturevalue('postgresql_url')
-        engine = create_engine(url)
-
+@pytest.fixture(params=['sqlite_file', 'sqlite_memory', 'mysql', 'postgresql'])
+def engine(request):
+    engine = request.getfixturevalue('%s_engine' % request.param)
     if engine.dialect.name != 'sqlite':
         engine.execute(CreateSchema('altschema'))
 
@@ -43,7 +29,7 @@ def engine(request, tmpdir_factory):
 
 
 def test_clear_database(engine):
-    clear_database(engine, ['altschema'])
+    clear_database(engine, ['altschema'] if engine.dialect.name != 'sqlite' else [])
     metadata = MetaData()
     metadata.reflect(engine)
     assert len(metadata.tables) == 0

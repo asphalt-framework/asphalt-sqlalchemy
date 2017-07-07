@@ -5,20 +5,11 @@ import pytest
 from asphalt.core.context import Context
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.url import URL
 from sqlalchemy.orm.session import sessionmaker, Session
 from sqlalchemy.pool import NullPool
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
-
-
-@pytest.fixture
-def connection():
-    engine = create_engine('sqlite:///:memory:')
-    connection = engine.connect()
-    connection.execute('CREATE TABLE foo (id INTEGER PRIMARY KEY)')
-    yield connection
-    connection.close()
-    engine.dispose()
 
 
 @pytest.fixture
@@ -32,7 +23,7 @@ def executor():
 @pytest.mark.parametrize('poolclass', [None, 'sqlalchemy.pool:StaticPool'])
 async def test_component_start(poolclass):
     """Test that the component creates all the expected resources."""
-    component = SQLAlchemyComponent(url='sqlite:///:memory:', poolclass=poolclass)
+    component = SQLAlchemyComponent(url=URL('sqlite', database=':memory:'), poolclass=poolclass)
     async with Context() as ctx:
         await component.start(ctx)
 

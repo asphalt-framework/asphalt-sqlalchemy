@@ -38,7 +38,7 @@ setup(
     extras_require={
         'testing': [
             'pytest',
-            'pytest-asyncio',
+            'pytest-asyncio >= 0.6',
             'pytest-catchlog',
             'pytest-cov',
             'psycopg2',
