@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Tuple, Optional  # noqa: F401
 
 from sqlalchemy.engine import Connectable
 from sqlalchemy.sql.schema import MetaData
@@ -15,7 +15,9 @@ def clear_database(engine: Connectable, schemas: Iterable[str] = ()) -> None:
     """
     assert check_argument_types()
     metadatas = []
-    for schema in (None,) + tuple(schemas):
+    all_schemas = (None,)  # type: Tuple[Optional[str], ...]
+    all_schemas += tuple(schemas)
+    for schema in all_schemas:
         # Reflect the schema to get the list of the tables, views and constraints
         metadata = MetaData()
         metadata.reflect(engine, schema=schema, views=True)

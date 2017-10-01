@@ -2,7 +2,7 @@ import logging
 from concurrent.futures import Executor, ThreadPoolExecutor
 from functools import partial
 from inspect import isawaitable
-from typing import Dict, Any, Union, Optional, Callable
+from typing import Dict, Any, Union, Optional, Callable, List, Tuple  # noqa: F401
 
 from async_generator import yield_
 from asyncio_extras.threads import call_in_executor
@@ -49,13 +49,13 @@ class SQLAlchemyComponent(Component):
 
     def __init__(self, engines: Dict[str, Dict[str, Any]] = None,
                  commit_executor: Union[Executor, str] = None, commit_executor_workers: int = 5,
-                 **default_args):
+                 **default_args) -> None:
         assert check_argument_types()
         if not engines:
             default_args.setdefault('context_attr', 'sql')
             engines = {'default': default_args}
 
-        self.session_factories = []
+        self.session_factories = []  # type: List[Tuple]
         for resource_name, config in engines.items():
             config = merge_config(default_args, config)
             context_attr = config.pop('context_attr', resource_name)

@@ -40,8 +40,6 @@ jobs:
         on:
           tags: true
           repo: asphalt-framework/asphalt-sqlalchemy
-  allow_failures:
-    - env: TOXENV=mypy
 
 services:
   - postgresql
