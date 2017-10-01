@@ -4,6 +4,12 @@ import pytest
 from sqlalchemy import create_engine
 
 
+@pytest.fixture(scope='session')
+def patch_psycopg2():
+    from psycopg2cffi import compat
+    compat.register()
+
+
 @pytest.fixture(scope='module')
 def mysql_engine():
     try:
@@ -17,7 +23,7 @@ def mysql_engine():
 
 
 @pytest.fixture(scope='module')
-def postgresql_engine():
+def postgresql_engine(patch_psycopg2):
     try:
         url = os.environ['POSTGRESQL_URL']
     except KeyError:
