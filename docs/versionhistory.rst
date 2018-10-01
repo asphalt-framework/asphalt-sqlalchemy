@@ -3,7 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
-**3.1.0**
+**3.1.1** (2018-10-01)
+
+- Execute ``session.close()`` in a worker thread, as it can potentially block the event loop thread
+
+**3.1.0** (2017-07-08)
 
 - Allowed the ``engine`` argument to ``clear_database()`` to be any ``Connectable``
 - Added the ``ready_callback`` option to engine configuration (should be handy for creating tables
