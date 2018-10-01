@@ -47,7 +47,7 @@ services:
 
 env:
   global:
-    - MYSQL_URL=mysql+cymysql://travis@localhost/asphalttest
+    - MYSQL_URL=mysql+pymysql://travis@localhost/asphalttest
     - POSTGRESQL_URL=postgresql://travis@localhost/asphalttest
 
 before_install:
