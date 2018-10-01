@@ -4,11 +4,11 @@ RUN wget -qO- https://github.com/jwilder/dockerize/releases/download/v0.5.0/dock
     tar xzC /usr/local/bin
 
 # Required for CyMySQL
-RUN adduser -u 1000 testuser
+RUN useradd -u 1000 testuser
 
 ENV SETUPTOOLS_SCM_PRETEND_VERSION 2.0.0
 
-RUN pip install -U setuptools
+RUN pip install -U pip setuptools
 
 WORKDIR /app
 COPY asphalt ./asphalt
