@@ -11,7 +11,7 @@ services:
       - .:/app
     working_dir: /app
     environment:
-      MYSQL_URL: mysql+cymysql://root@mysql/asphalttest
+      MYSQL_URL: mysql+pymysql://root@mysql/asphalttest
       POSTGRESQL_URL: postgresql://travis@postgresql/asphalttest
     entrypoint: dockerize -wait tcp://postgresql:5432 -wait tcp://mysql:3306 pytest
 
