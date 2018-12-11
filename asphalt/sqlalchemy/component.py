@@ -1,4 +1,5 @@
 import logging
+from asyncio import shield
 from concurrent.futures import Executor, ThreadPoolExecutor
 from functools import partial
 from inspect import isawaitable
@@ -119,7 +120,7 @@ class SQLAlchemyComponent(Component):
                     await call_in_executor(session.commit, executor=self.commit_executor)
             finally:
                 del session.info['ctx']
-                await call_in_executor(session.close, executor=self.commit_executor)
+                await shield(call_in_executor(session.close, executor=self.commit_executor))
 
         session = factory(info={'ctx': ctx})
         ctx.add_teardown_callback(teardown_session, pass_exception=True)

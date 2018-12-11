@@ -3,6 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**3.1.2** (2018-12-11)
+
+- Shield ``session.close()`` from cancellation to ensure that the connection is returned to the
+  pool
+
 **3.1.1** (2018-10-01)
 
 - Execute ``session.close()`` in a worker thread, as it can potentially block the event loop thread
