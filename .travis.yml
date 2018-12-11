@@ -1,39 +1,48 @@
+dist: xenial
 language: python
-sudo: false
+cache: pip
+python: "3.6"
 
 stages:
+  - name: static analysis
   - name: test
   - name: deploy to pypi
     if: type = push AND tag =~ ^\d+\.\d+\.\d+
 
 jobs:
   include:
-    - env: TOXENV=py35
-      python: "3.5"
+    - stage: static analysis
+      env: TOXENV=flake8
 
-    - env: TOXENV=py36
+    - stage: static analysis
+      env: TOXENV=mypy
+      python: "3.7"
+
+    - stage: test
+      env: TOXENV=pypy3
+      python: pypy3.5-6.0
+      after_success: &after_success
+        - pip install coveralls
+        - coveralls
+
+    - stage: test
+      env: TOXENV=py35
+      python: "3.5.2"
+      after_success: *after_success
+
+    - stage: test
+      env: TOXENV=py36
       python: "3.6"
+      after_success: *after_success
 
-    - env: TOXENV=pypy3
-      python: pypy3
-      after_success: skip
-
-    - env: TOXENV=flake8
-      python: "3.5"
-      services:
-      before_install: skip
-      after_success: skip
-
-    - env: TOXENV=mypy
-      python: "3.5"
-      services:
-      before_install: skip
-      after_success: skip
+    - stage: test
+      env: TOXENV=py37
+      python: "3.7"
+      after_success: *after_success
 
     - stage: deploy to PyPI
-      python: "3.5"
       before_install: skip
-      install: pip install -U setuptools
+      install: pip install "setuptools >= 40.1.0"
       script: skip
       after_success: true
       deploy:
@@ -60,7 +69,7 @@ before_install:
   - mysql -e "create database asphalttest"
 
 install:
-  - pip install -U setuptools
+  - pip install "setuptools >= 40.1.0"
   - pip install tox
 
 script: tox
