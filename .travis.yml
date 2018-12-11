@@ -44,7 +44,6 @@ jobs:
       before_install: skip
       install: pip install "setuptools >= 40.1.0"
       script: skip
-      after_success: true
       deploy:
         provider: pypi
         user: agronholm
@@ -73,10 +72,6 @@ install:
   - pip install tox
 
 script: tox
-
-after_success:
-  - pip install coveralls
-  - coveralls
 
 notifications:
   webhooks:
