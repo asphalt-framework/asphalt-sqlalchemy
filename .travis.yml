@@ -1,6 +1,5 @@
 dist: xenial
 language: python
-cache: pip
 python: "3.6"
 
 stages:
@@ -18,31 +17,40 @@ jobs:
       env: TOXENV=mypy
       python: "3.7"
 
-    - stage: test
-      env: TOXENV=pypy3
+    - &test
+      stage: test
+      env:
+        - MYSQL_URL=mysql+pymysql://travis@localhost/asphalttest
+        - POSTGRESQL_URL=postgresql://travis@localhost/asphalttest
+        - TOXENV=pypy3
       python: pypy3.5-6.0
-      after_success: &after_success
+      install:
+        - pip install "setuptools >= 40.1.0"
+        - pip install tox
+      services:
+        - postgresql
+        - mysql
+      before_install:
+        - psql -c "create database asphalttest" -U postgres
+        - mysql -e "create database asphalttest"
+      after_success:
         - pip install coveralls
         - coveralls
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py35
       python: "3.5.2"
-      after_success: *after_success
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py36
       python: "3.6"
-      after_success: *after_success
 
-    - stage: test
+    - <<: *test
       env: TOXENV=py37
       python: "3.7"
-      after_success: *after_success
 
-    - stage: deploy to PyPI
-      before_install: skip
-      install: pip install "setuptools >= 40.1.0"
+    - stage: deploy to pypi
+      install: true
       script: skip
       deploy:
         provider: pypi
@@ -54,22 +62,7 @@ jobs:
           tags: true
           repo: asphalt-framework/asphalt-sqlalchemy
 
-services:
-  - postgresql
-  - mysql
-
-env:
-  global:
-    - MYSQL_URL=mysql+pymysql://travis@localhost/asphalttest
-    - POSTGRESQL_URL=postgresql://travis@localhost/asphalttest
-
-before_install:
-  - psql -c "create database asphalttest" -U postgres
-  - mysql -e "create database asphalttest"
-
-install:
-  - pip install "setuptools >= 40.1.0"
-  - pip install tox
+install: pip install tox
 
 script: tox
 
