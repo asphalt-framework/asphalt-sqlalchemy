@@ -19,10 +19,7 @@ jobs:
 
     - &test
       stage: test
-      env:
-        - MYSQL_URL=mysql+pymysql://travis@localhost/asphalttest
-        - POSTGRESQL_URL=postgresql://travis@localhost/asphalttest
-        - TOXENV=pypy3
+      env: TOXENV=pypy3
       python: pypy3.5-6.0
       install:
         - pip install "setuptools >= 40.1.0"
@@ -61,6 +58,11 @@ jobs:
         on:
           tags: true
           repo: asphalt-framework/asphalt-sqlalchemy
+
+env:
+  global:
+    - MYSQL_URL=mysql+pymysql://travis@localhost/asphalttest
+    - POSTGRESQL_URL=postgresql://travis@localhost/asphalttest
 
 install: pip install tox
 
