@@ -3,6 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**3.1.3** (2018-12-18)
+
+- Implemented better mechanics for exception handling to make sure that ``session.close()`` is
+  always executed
+
 **3.1.2** (2018-12-11)
 
 - Shield ``session.close()`` from cancellation to ensure that the connection is returned to the
