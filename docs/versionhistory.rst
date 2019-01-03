@@ -3,6 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**3.1.4** (2019-01-16)
+
+- Eliminated the possibility of ``session.commit()`` and ``session.close()`` being called
+  concurrently
+
 **3.1.3** (2018-12-18)
 
 - Implemented better mechanics for exception handling to make sure that ``session.close()`` is

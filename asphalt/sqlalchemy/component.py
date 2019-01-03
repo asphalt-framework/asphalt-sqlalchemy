@@ -5,14 +5,14 @@ from inspect import isawaitable
 from typing import Dict, Any, Union, Optional, Callable, List, Tuple  # noqa: F401
 
 from async_generator import yield_
-from asyncio_extras.threads import call_in_executor
 from sqlalchemy.engine import create_engine, Engine, Connection
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import Pool
 from typeguard import check_argument_types
 
-from asphalt.core import Component, Context, merge_config, context_teardown, resolve_reference
+from asphalt.core import (
+    Component, Context, merge_config, context_teardown, resolve_reference, executor)
 
 logger = logging.getLogger(__name__)
 
@@ -113,16 +113,14 @@ class SQLAlchemyComponent(Component):
         return bind, sessionmaker(bind, **session), ready_callback
 
     def create_session(self, ctx: Context, factory: sessionmaker) -> Session:
-        async def teardown_session(exception: Optional[BaseException]) -> None:
+        @executor(self.commit_executor)
+        def teardown_session(exception: Optional[BaseException]) -> None:
             try:
                 if exception is None and session.is_active:
-                    await call_in_executor(session.commit, executor=self.commit_executor)
-            except BaseException:
-                await call_in_executor(session.rollback, executor=self.commit_executor)
-                raise
+                    session.commit()
             finally:
-                del session.info['ctx']
                 session.close()
+                del session.info['ctx']
 
         session = factory(info={'ctx': ctx})
         ctx.add_teardown_callback(teardown_session, pass_exception=True)
