@@ -1,3 +1,4 @@
+.pre-commit-config.yaml
 .project
 .pydevproject
 .idea
@@ -6,9 +7,9 @@
 .cache
 .eggs/
 *.egg-info/
-*.pyc
-*.db
 __pycache__/
 docs/_build/
 dist/
 build/
+virtualenv/
+venv*
