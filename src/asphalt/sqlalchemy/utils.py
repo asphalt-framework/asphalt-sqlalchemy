@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple, Optional  # noqa: F401
+from typing import Iterable, Optional, Tuple  # noqa: F401
 
 from sqlalchemy.engine import Connectable
 from sqlalchemy.sql.schema import MetaData

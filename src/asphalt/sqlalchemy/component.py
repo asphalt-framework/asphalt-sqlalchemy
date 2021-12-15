@@ -2,17 +2,16 @@ import logging
 from concurrent.futures import Executor, ThreadPoolExecutor
 from functools import partial
 from inspect import isawaitable
-from typing import Dict, Any, Union, Optional, Callable, List, Tuple  # noqa: F401
-
-from async_generator import yield_
-from sqlalchemy.engine import create_engine, Engine, Connection
-from sqlalchemy.engine.url import URL, make_url
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import Pool
-from typeguard import check_argument_types
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union  # noqa: F401
 
 from asphalt.core import (
-    Component, Context, merge_config, context_teardown, resolve_reference, executor)
+    Component, Context, context_teardown, executor, merge_config, resolve_reference)
+from async_generator import yield_
+from sqlalchemy.engine import Connection, Engine, create_engine
+from sqlalchemy.engine.url import URL, make_url
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import Pool
+from typeguard import check_argument_types
 
 logger = logging.getLogger(__name__)
 

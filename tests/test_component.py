@@ -6,7 +6,7 @@ from asphalt.core.context import Context
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.url import URL
-from sqlalchemy.orm.session import sessionmaker, Session
+from sqlalchemy.orm.session import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
@@ -23,7 +23,8 @@ def executor():
 @pytest.mark.parametrize('poolclass', [None, 'sqlalchemy.pool:StaticPool'])
 async def test_component_start(poolclass):
     """Test that the component creates all the expected resources."""
-    component = SQLAlchemyComponent(url=URL('sqlite', database=':memory:'), poolclass=poolclass)
+    url = URL.create('sqlite', database=':memory:')
+    component = SQLAlchemyComponent(url=url, poolclass=poolclass)
     async with Context() as ctx:
         await component.start(ctx)
 

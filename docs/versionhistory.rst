@@ -3,6 +3,11 @@ Version history
 
 This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
+**UNRELEASED**
+
+- Added support for Python 3.10
+- Dropped support for Python 3.5 and 3.6
+
 **3.1.4** (2019-01-16)
 
 - Eliminated the possibility of ``session.commit()`` and ``session.close()`` being called
