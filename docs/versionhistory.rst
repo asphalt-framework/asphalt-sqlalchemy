@@ -7,6 +7,7 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 
 - Added support for Python 3.10
 - Dropped support for Python 3.5 and 3.6
+- Fixed deprecation warning about initializing SQLAlchemy ``URL`` objects directly
 
 **3.1.4** (2019-01-16)
 

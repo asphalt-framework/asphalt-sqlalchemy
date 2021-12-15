@@ -15,6 +15,12 @@ from typeguard import check_argument_types
 
 logger = logging.getLogger(__name__)
 
+if hasattr(URL, 'create'):
+    # SQLAlchemy 1.4
+    create_url = URL.create
+else:
+    create_url = URL
+
 
 class SQLAlchemyComponent(Component):
     """
@@ -88,7 +94,7 @@ class SQLAlchemyComponent(Component):
         assert check_argument_types()
         if bind is None:
             if isinstance(url, dict):
-                url = URL(**url)
+                url = create_url(**url)
             elif isinstance(url, str):
                 url = make_url(url)
             elif url is None:

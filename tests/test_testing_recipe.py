@@ -6,7 +6,7 @@ and works with different backends.
 from contextlib import closing
 
 import pytest
-from asphalt.core import Context, ContainerComponent
+from asphalt.core import ContainerComponent, Context
 from sqlalchemy import Column, Integer, Unicode, event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
@@ -67,8 +67,8 @@ def transaction(connection):
 
 
 @pytest.fixture
-def root_context():
-    with Context() as ctx:
+async def root_context():
+    async with Context() as ctx:
         yield ctx
 
 
