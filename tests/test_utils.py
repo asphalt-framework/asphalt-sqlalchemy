@@ -1,6 +1,6 @@
 import pytest
-from sqlalchemy.sql.ddl import DropSchema, CreateSchema
-from sqlalchemy.sql.schema import MetaData, Table, Column, ForeignKey
+from sqlalchemy.sql.ddl import CreateSchema, DropSchema
+from sqlalchemy.sql.schema import Column, ForeignKey, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer
 
 from asphalt.sqlalchemy.utils import clear_database
