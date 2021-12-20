@@ -2,7 +2,7 @@ import logging
 from concurrent.futures import Executor, ThreadPoolExecutor
 from functools import partial
 from inspect import isawaitable
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union  # noqa: F401
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from asphalt.core import (
     Component, Context, context_teardown, executor, merge_config, resolve_reference)
