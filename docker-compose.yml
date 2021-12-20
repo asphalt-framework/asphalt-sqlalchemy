@@ -1,28 +1,18 @@
 # Docker-like setup that serves as a local drop-in for the corresponding Travis services
 version: "3.7"
 services:
-  test:
-    build: .
-    user: 1000:1000
-    depends_on:
-      - mysql
-      - postgresql
-    volumes:
-      - .:/app
-    working_dir: /app
-    environment:
-      MYSQL_URL: mysql+pymysql://root@mysql/asphalttest
-      POSTGRESQL_URL: postgresql+psycopg2://postgres:secret@postgresql/asphalttest
-    entrypoint: dockerize -wait tcp://postgresql:5432 -wait tcp://mysql:3306 pytest
-
   mysql:
     image: mysql
+    ports:
+      - "33060:3306"
     environment:
       MYSQL_DATABASE: asphalttest
       MYSQL_ALLOW_EMPTY_PASSWORD: 1
 
   postgresql:
     image: postgres
+    ports:
+      - "54320:5432"
     environment:
       POSTGRES_DB: asphalttest
       POSTGRES_PASSWORD: secret
