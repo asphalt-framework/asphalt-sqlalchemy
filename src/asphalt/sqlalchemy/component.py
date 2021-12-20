@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from asphalt.core import (
     Component, Context, context_teardown, executor, merge_config, resolve_reference)
-from async_generator import yield_
 from sqlalchemy.engine import Connection, Engine, create_engine
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.orm import Session, sessionmaker
@@ -153,7 +152,7 @@ class SQLAlchemyComponent(Component):
             logger.info('Configured SQLAlchemy session maker (%s / ctx.%s; dialect=%s)',
                         resource_name, context_attr, bind.dialect.name)
 
-        await yield_()
+        yield
 
         for resource_name, context_attr, bind, factory, ready_callback in self.session_factories:
             if isinstance(bind, Engine):
