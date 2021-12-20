@@ -58,6 +58,8 @@ jobs:
       with:
         path: ~/.cache/pip
         key: pip-test-${{ matrix.python-version }}-${{ matrix.os }}
+    - name: Start external services
+      run: docker-compose up -d
     - name: Install dependencies
       run: pip install .[test] coveralls
     - name: Test with pytest
