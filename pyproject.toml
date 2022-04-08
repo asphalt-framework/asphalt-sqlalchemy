@@ -1,10 +1,57 @@
 [build-system]
 requires = [
-    "setuptools >= 42",
-    "wheel >= 0.29.0",
+    "setuptools >= 61",
     "setuptools_scm[toml] >= 3.4"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "asphalt-sqlalchemy"
+description = "SQLAlchemy integration component for the Asphalt framework"
+readme = "README.rst"
+authors = [{name = "Alex Grönholm", email = "alex.gronholm@nextday.fi"}]
+license = {text = "Apache License 2.0"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Database",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "asphalt ~= 4.6.0",
+    "SQLAlchemy >= 1.0.10",
+    "typeguard ~= 2.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/asphalt-framework/asphalt-sqlalchemy"
+
+[project.optional-dependencies]
+test = [
+    "pymysql",
+    "psycopg2cffi",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+]
+doc = [
+    "Sphinx >= 1.5",
+    "sphinx_rtd_theme",
+    "sphinx-autodoc-typehints >= 1.2.0",
+    "sphinxcontrib-asyncio >= 0.2.0",
+]
+
+[project.entry-points."asphalt.components"]
+sqlalchemy = "asphalt.sqlalchemy.component:SQLAlchemyComponent"
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
@@ -38,3 +85,22 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py37, py38, py39, py310, pypy3
+skip_missing_interpreters = true
+isolated_build = true
+
+[testenv]
+extras = test
+commands = python -m pytest {posargs}
+setenv =
+  MYSQL_URL = mysql+pymysql://root@localhost:33060/asphalttest
+  POSTGRESQL_URL = postgresql+psycopg2://postgres:secret@localhost:54320/asphalttest
+
+[testenv:docs]
+extras = doc
+commands = sphinx-build docs build/sphinx
+"""
