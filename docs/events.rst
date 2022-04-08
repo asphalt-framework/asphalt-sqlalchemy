@@ -22,4 +22,3 @@ SQLAlchemy component as a resource::
     async def handler(ctx):
         session_factory = ctx.require_resource(sessionmaker)
         event.listen(session_factory, 'before_commit', precommit_hook)
-

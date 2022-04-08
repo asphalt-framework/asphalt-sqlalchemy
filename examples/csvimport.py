@@ -10,46 +10,54 @@ import logging
 from pathlib import Path
 
 from asphalt.core import CLIApplicationComponent, Context, run_application
-from sqlalchemy.sql.schema import MetaData, Table, Column
+from sqlalchemy.sql.schema import Column, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer, Unicode
 
 logger = logging.getLogger(__name__)
 metadata = MetaData()
 people = Table(
-    'people', metadata,
-    Column('id', Integer, primary_key=True),
-    Column('name', Unicode, nullable=False),
-    Column('city', Unicode, nullable=False),
-    Column('phone', Unicode, nullable=False),
-    Column('email', Unicode, nullable=False)
+    "people",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", Unicode, nullable=False),
+    Column("city", Unicode, nullable=False),
+    Column("phone", Unicode, nullable=False),
+    Column("email", Unicode, nullable=False),
 )
 
 
 class CSVImporterComponent(CLIApplicationComponent):
     def __init__(self):
         super().__init__()
-        self.csv_path = Path(__file__).with_name('people.csv')
+        self.csv_path = Path(__file__).with_name("people.csv")
 
     async def start(self, ctx: Context):
         # Remove the db file if it exists
-        db_path = self.csv_path.with_name('people.db')
+        db_path = self.csv_path.with_name("people.db")
         if db_path.exists():
             db_path.unlink()
 
-        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path),
-                           ready_callback=lambda bind, factory: metadata.create_all(bind))
+        self.add_component(
+            "sqlalchemy",
+            url=f"sqlite:///{db_path}",
+            ready_callback=lambda bind, factory: metadata.create_all(bind),
+        )
         await super().start(ctx)
 
     async def run(self, ctx: Context):
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
-                reader = csv.reader(csvfile, delimiter='|')
+                reader = csv.reader(csvfile, delimiter="|")
                 for name, city, phone, email in reader:
                     num_rows += 1
                     ctx.sql.execute(
-                        people.insert().values(name=name, city=city, phone=phone, email=email))
+                        people.insert().values(
+                            name=name, city=city, phone=phone, email=email
+                        )
+                    )
 
-        logger.info('Imported %d rows of data', num_rows)
+        logger.info("Imported %d rows of data", num_rows)
+
 
 run_application(CSVImporterComponent(), logging=logging.DEBUG)

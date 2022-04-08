@@ -19,7 +19,7 @@ Base = declarative_base()
 
 
 class Person(Base):
-    __tablename__ = 'people'
+    __tablename__ = "people"
 
     id = Column(Integer, primary_key=True)
     name = Column(Unicode, nullable=False)
@@ -31,23 +31,26 @@ class Person(Base):
 class CSVImporterComponent(CLIApplicationComponent):
     def __init__(self):
         super().__init__()
-        self.csv_path = Path(__file__).with_name('people.csv')
+        self.csv_path = Path(__file__).with_name("people.csv")
 
     async def start(self, ctx: Context):
         # Remove the db file if it exists
-        db_path = self.csv_path.with_name('people.db')
+        db_path = self.csv_path.with_name("people.db")
         if db_path.exists():
             db_path.unlink()
 
-        self.add_component('sqlalchemy', url='sqlite:///{}'.format(db_path),
-                           ready_callback=lambda bind, factory: Base.metadata.create_all(bind))
+        self.add_component(
+            "sqlalchemy",
+            url=f"sqlite:///{db_path}",
+            ready_callback=lambda bind, factory: Base.metadata.create_all(bind),
+        )
         await super().start(ctx)
 
     async def run(self, ctx: Context):
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
-                reader = csv.reader(csvfile, delimiter='|')
+                reader = csv.reader(csvfile, delimiter="|")
                 for name, city, phone, email in reader:
                     num_rows += 1
                     ctx.sql.add(Person(name=name, city=city, phone=phone, email=email))
@@ -55,6 +58,7 @@ class CSVImporterComponent(CLIApplicationComponent):
             # Emit pending INSERTs (though this would happen when the context ends anyway)
             ctx.sql.flush()
 
-        logger.info('Imported %d rows of data', num_rows)
+        logger.info("Imported %d rows of data", num_rows)
+
 
 run_application(CSVImporterComponent(), logging=logging.DEBUG)

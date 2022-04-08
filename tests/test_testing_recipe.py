@@ -18,15 +18,17 @@ Base = declarative_base()
 
 
 class Person(Base):
-    __tablename__ = 'people'
+    __tablename__ = "people"
 
     id = Column(Integer, primary_key=True)
     name = Column(Unicode(100), nullable=False)
 
 
-@pytest.fixture(scope='module', params=['sqlite_memory', 'sqlite_file', 'mysql', 'postgresql'])
+@pytest.fixture(
+    scope="module", params=["sqlite_memory", "sqlite_file", "mysql", "postgresql"]
+)
 def connection(request):
-    engine = request.getfixturevalue('%s_engine' % request.param)
+    engine = request.getfixturevalue("%s_engine" % request.param)
     conn = engine.connect()
 
     # Clear any existing tables and create the current tables
@@ -40,11 +42,11 @@ def connection(request):
     conn.close()
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def person(connection):
     # Add some base data to the database here (if necessary for your application)
     with closing(Session(connection, expire_on_commit=False)) as session:
-        person = Person(name='Test person')
+        person = Person(name="Test person")
         session.add(person)
         session.commit()
         return person
@@ -60,9 +62,9 @@ def transaction(connection):
             tx = connection.begin()
 
     tx = connection.begin()
-    event.listen(Session, 'after_rollback', restart)
+    event.listen(Session, "after_rollback", restart)
     yield
-    event.remove(Session, 'after_rollback', restart)
+    event.remove(Session, "after_rollback", restart)
     tx.rollback()
 
 
@@ -74,9 +76,7 @@ async def root_context():
 
 @pytest.fixture
 async def root_component(connection, root_context):
-    components = {
-        'sqlalchemy': {'bind': connection, 'ready_callback': None}
-    }
+    components = {"sqlalchemy": {"bind": connection, "ready_callback": None}}
     component = ContainerComponent(components=components)
     await component.start(root_context)
 
@@ -100,7 +100,7 @@ async def test_rollback(dbsession, root_context, root_component):
             # Without the session listener, this row would now be inserted outside a SAVEPOINT,
             # breaking test isolation
             ctx.sql.rollback()
-            ctx.sql.add(Person(name='Works now!'))
+            ctx.sql.add(Person(name="Works now!"))
             ctx.sql.flush()
 
     # The context is gone, but the extra Person should still be around
@@ -111,7 +111,7 @@ async def test_rollback(dbsession, root_context, root_component):
 async def test_add_person(dbsession, root_context, root_component):
     # Simulate adding a row to the "people" table in the application
     async with Context(root_context) as ctx:
-        ctx.sql.add(Person(name='Another person'))
+        ctx.sql.add(Person(name="Another person"))
 
     # The testing code should see both rows now
     assert dbsession.query(Person).order_by(Person.id).count() == 2
