@@ -12,3 +12,4 @@ dist/
 build/
 virtualenv/
 venv*
+/examples/people.db
