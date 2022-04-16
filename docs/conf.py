@@ -33,7 +33,7 @@ html_static_path = ["_static"]
 htmlhelp_basename = project.replace("-", "") + "doc"
 
 intersphinx_mapping = {
-    "python": ("http://docs.python.org/3/", None),
-    "asphalt": ("http://asphalt.readthedocs.io/en/latest/", None),
-    "sqlalchemy": ("http://docs.sqlalchemy.org/en/latest/", None),
+    "python": ("https://docs.python.org/3/", None),
+    "asphalt": ("https://asphalt.readthedocs.io/en/latest/", None),
+    "sqlalchemy": ("https://docs.sqlalchemy.org/en/14/", None),
 }

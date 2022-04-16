@@ -1,18 +1,21 @@
 """
-This module exists to make sure that the testing recipe in the documentation is and stays valid,
-and works with different backends.
+This module exists to make sure that the testing recipe in the documentation is and
+stays valid, and works with different backends.
 """
 
-from contextlib import closing
-
 import pytest
+import pytest_asyncio
 from asphalt.core import ContainerComponent, Context
-from sqlalchemy import Column, Integer, Unicode, event
+from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import Session, declarative_base
+from sqlalchemy.schema import Column
+from sqlalchemy.sql.expression import delete, func
+from sqlalchemy.types import Integer, Unicode
 
-from asphalt.sqlalchemy.utils import clear_database
+from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
 Base = declarative_base()
 
@@ -24,104 +27,184 @@ class Person(Base):
     name = Column(Unicode(100), nullable=False)
 
 
-@pytest.fixture(
-    scope="module", params=["sqlite_memory", "sqlite_file", "mysql", "postgresql"]
-)
-def connection(request):
-    engine = request.getfixturevalue("%s_engine" % request.param)
-    conn = engine.connect()
+class TestSyncRecipe:
+    @pytest.fixture(scope="class")
+    def setup_schema(self, sync_engine):
+        clear_database(sync_engine)
+        Base.metadata.create_all(sync_engine, checkfirst=False)
 
-    # Clear any existing tables and create the current tables
-    # The clear_database() call can be skipped if your chosen RDBMS supports transactional DDL
-    # See https://wiki.postgresql.org/wiki/Transactional_DDL_in_PostgreSQL:_A_Competitive_Analysis
-    clear_database(conn)
-    Base.metadata.create_all(conn, checkfirst=False)
+    @pytest.fixture
+    def connection(self, sync_engine, setup_schema):
+        def restart(session, transaction):
+            nonlocal nested
+            if not nested.is_active:
+                nested = conn.begin_nested()
 
-    yield conn
+        conn = sync_engine.connect()
+        tx = conn.begin()
+        nested = conn.begin_nested()
+        event.listen(Session, "after_transaction_end", restart)
 
-    conn.close()
+        yield conn
 
+        event.remove(Session, "after_transaction_end", restart)
+        nested.rollback()
+        tx.rollback()
 
-@pytest.fixture(scope="module", autouse=True)
-def person(connection):
-    # Add some base data to the database here (if necessary for your application)
-    with closing(Session(connection, expire_on_commit=False)) as session:
-        person = Person(name="Test person")
-        session.add(person)
-        session.commit()
-        return person
+    @pytest.fixture(autouse=True)
+    def person(self, connection, setup_schema):
+        # Add some base data to the database here (if necessary for your application)
+        with Session(connection, expire_on_commit=False) as session:
+            person = Person(name="Test person")
+            session.add(person)
+            session.commit()
+            return person
 
+    @pytest.fixture
+    def root_component(self, connection):
+        return ContainerComponent({"sqlalchemy": {"bind": connection}})
 
-@pytest.fixture(autouse=True)
-def transaction(connection):
-    def restart(session):
-        # When any session rolls back its transaction, restart this one if it's the one that has
-        # been rolled back
-        nonlocal tx
-        if not connection.in_transaction():
-            tx = connection.begin()
+    @pytest.fixture
+    def dbsession(self, connection):
+        # A database session for use by testing code
+        with Session(connection) as session:
+            yield session
 
-    tx = connection.begin()
-    event.listen(Session, "after_rollback", restart)
-    yield
-    event.remove(Session, "after_rollback", restart)
-    tx.rollback()
+    @pytest.mark.asyncio
+    async def test_rollback(self, dbsession, root_component):
+        # Simulate a rollback happening in a subcontext
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(Session)
+                try:
+                    # No value for a non-nullable column => IntegrityError!
+                    session.add(Person())
+                    session.flush()
+                except IntegrityError:
+                    # Without the session listener, this row would now be inserted
+                    # outside a SAVEPOINT, breaking test isolation
+                    session.rollback()
+                    session.add(Person(name="Works now!"))
+                    session.flush()
 
+        # The context is gone, but the extra Person should still be around
+        assert dbsession.scalar(func.count(Person.id)) == 2
 
-@pytest.fixture
-async def root_context():
-    async with Context() as ctx:
-        yield ctx
+    @pytest.mark.asyncio
+    async def test_add_person(self, dbsession, root_component):
+        # Simulate adding a row to the "people" table in the application
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(Session)
+                session.add(Person(name="Another person"))
 
+        # The testing code should see both rows now
+        assert dbsession.scalar(func.count(Person.id)) == 2
 
-@pytest.fixture
-async def root_component(connection, root_context):
-    components = {"sqlalchemy": {"bind": connection, "ready_callback": None}}
-    component = ContainerComponent(components=components)
-    await component.start(root_context)
+    @pytest.mark.asyncio
+    async def test_delete_person(self, dbsession, root_component):
+        # Simulate removing the test person in the application
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(Session)
+                session.execute(delete(Person))
 
-
-@pytest.fixture
-def dbsession(connection):
-    # A database session for use by testing code
-    with closing(Session(connection)) as session:
-        yield session
-
-
-@pytest.mark.asyncio
-async def test_rollback(dbsession, root_context, root_component):
-    # Simulate a rollback happening in a subcontext
-    async with Context(root_context) as ctx:
-        try:
-            # No value for a non-nullable column => IntegrityError!
-            ctx.sql.add(Person())
-            ctx.sql.flush()
-        except IntegrityError:
-            # Without the session listener, this row would now be inserted outside a SAVEPOINT,
-            # breaking test isolation
-            ctx.sql.rollback()
-            ctx.sql.add(Person(name="Works now!"))
-            ctx.sql.flush()
-
-    # The context is gone, but the extra Person should still be around
-    assert dbsession.query(Person).count() == 2
-
-
-@pytest.mark.asyncio
-async def test_add_person(dbsession, root_context, root_component):
-    # Simulate adding a row to the "people" table in the application
-    async with Context(root_context) as ctx:
-        ctx.sql.add(Person(name="Another person"))
-
-    # The testing code should see both rows now
-    assert dbsession.query(Person).order_by(Person.id).count() == 2
+        # The testing code should not see any rows now
+        assert dbsession.scalar(func.count(Person.id)) == 0
 
 
-@pytest.mark.asyncio
-async def test_delete_person(dbsession, root_context, root_component):
-    # Simulate removing the test person in the application
-    async with Context(root_context) as ctx:
-        ctx.sql.query(Person).delete()
+class TestAsyncRecipe:
+    @pytest_asyncio.fixture(scope="class")
+    async def setup_schema(self, async_engine):
+        conn = await async_engine.connect()
+        await clear_async_database(conn)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=False)
+        await conn.commit()
+        await conn.close()
 
-    # The testing code should not see any rows now
-    assert dbsession.query(Person).count() == 0
+    @pytest_asyncio.fixture
+    async def connection(self, async_engine, setup_schema):
+        def restart(session, transaction):
+            nonlocal nested
+            if not nested.is_active:
+                adapted_connection = conn.sync_connection.connection.dbapi_connection
+                nested = adapted_connection.run_async(lambda c: conn.begin_nested())
+
+        conn = await async_engine.connect()
+        tx = await conn.begin()
+        nested = await conn.begin_nested()
+        event.listen(Session, "after_transaction_end", restart)
+
+        yield conn
+
+        event.remove(Session, "after_transaction_end", restart)
+        await nested.rollback()
+        await tx.rollback()
+        await conn.close()
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def person(self, connection):
+        # Add some base data to the database here (if necessary for your application)
+        async with AsyncSession(connection, expire_on_commit=False) as session:
+            person = Person(name="Test person")
+            session.add(person)
+            await session.commit()
+            return person
+
+    @pytest.fixture
+    def root_component(self, connection):
+        return ContainerComponent({"sqlalchemy": {"bind": connection}})
+
+    @pytest_asyncio.fixture
+    async def dbsession(self, connection):
+        # A database session for use by testing code
+        async with AsyncSession(connection) as session:
+            yield session
+
+    @pytest.mark.asyncio
+    async def test_rollback(self, dbsession, root_component):
+        # Simulate a rollback happening in a subcontext
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(AsyncSession)
+                try:
+                    # No value for a non-nullable column => IntegrityError!
+                    session.add(Person())
+                    await session.flush()
+                except IntegrityError:
+                    # Without the session listener, this row would now be inserted
+                    # outside a SAVEPOINT, breaking test isolation
+                    await session.rollback()
+                    session.add(Person(name="Works now!"))
+                    await session.flush()
+
+        # The context is gone, but the extra Person should still be around
+        assert await dbsession.scalar(func.count(Person.id)) == 2
+
+    @pytest.mark.asyncio
+    async def test_add_person(self, dbsession, root_component):
+        # Simulate adding a row to the "people" table in the application
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(AsyncSession)
+                session.add(Person(name="Another person"))
+
+        # The testing code should see both rows now
+        assert await dbsession.scalar(select(func.count(Person.id))) == 2
+
+    @pytest.mark.asyncio
+    async def test_delete_person(self, dbsession, root_component):
+        # Simulate removing the test person in the application
+        async with Context() as root_ctx:
+            await root_component.start(root_ctx)
+            async with Context() as ctx:
+                session = ctx.require_resource(AsyncSession)
+                await session.execute(delete(Person))
+
+        # The testing code should not see any rows now
+        assert await dbsession.scalar(func.count(Person.id)) == 0

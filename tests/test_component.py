@@ -1,51 +1,43 @@
 import gc
-from concurrent.futures import Executor, ThreadPoolExecutor
+import os
+from contextlib import ExitStack
 
 import pytest
 from asphalt.core.context import Context
-from sqlalchemy import create_engine
-from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.url import URL
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.orm.session import Session, sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy.sql import text
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
 
 
-@pytest.fixture
-def executor():
-    pool = ThreadPoolExecutor(1)
-    yield pool
-    pool.shutdown()
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize("poolclass", [None, "sqlalchemy.pool:StaticPool"])
-async def test_component_start(poolclass):
-    """Test that the component creates all the expected resources."""
+async def test_component_start_sync():
+    """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
-    component = SQLAlchemyComponent(url=url, poolclass=poolclass)
+    component = SQLAlchemyComponent(url=url)
     async with Context() as ctx:
         await component.start(ctx)
 
-        engine = ctx.require_resource(Engine)
+        ctx.require_resource(Engine)
         ctx.require_resource(sessionmaker)
-        assert ctx.sql is ctx.require_resource(Session)
-        assert ctx.sql.bind is engine
+        ctx.require_resource(Session)
 
 
 @pytest.mark.asyncio
-async def test_multiple_engines():
-    component = SQLAlchemyComponent(
-        engines={"db1": {}, "db2": {}}, url="sqlite:///:memory:"
-    )
+async def test_component_start_async():
+    """Test that the component creates all the expected (asynchronous) resources."""
+    url = URL.create("sqlite+aiosqlite", database=":memory:")
+    component = SQLAlchemyComponent(url=url)
     async with Context() as ctx:
         await component.start(ctx)
 
-        engine1 = ctx.require_resource(Engine, "db1")
-        engine2 = ctx.require_resource(Engine, "db2")
-        assert ctx.db1.bind is engine1
-        assert ctx.db2.bind is engine2
+        ctx.require_resource(AsyncEngine)
+        ctx.require_resource(sessionmaker)
+        ctx.require_resource(AsyncSession)
 
 
 @pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
@@ -74,7 +66,7 @@ async def test_ready_callback(asynchronous):
 
 
 @pytest.mark.asyncio
-async def test_bind():
+async def test_bind_sync():
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_engine("sqlite:///:memory:")
     connection = engine.connect()
@@ -83,7 +75,62 @@ async def test_bind():
         await component.start(ctx)
 
         assert ctx.require_resource(Engine) is engine
-        assert ctx.sql.bind is connection
+        assert ctx.require_resource(Session).bind is connection
+
+    connection.close()
+
+
+@pytest.mark.asyncio
+async def test_bind_async():
+    """Test that a Connection can be passed as "bind" in place of "url"."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    connection = await engine.connect()
+    component = SQLAlchemyComponent(bind=connection)
+    async with Context() as ctx:
+        await component.start(ctx)
+
+        assert ctx.require_resource(AsyncEngine) is engine
+        assert ctx.require_resource(AsyncSession).bind is connection
+
+    await connection.close()
+
+
+@pytest.mark.asyncio
+async def test_close_twice_sync(patch_psycopg2):
+    """Test that closing a session releases connection resources, but remains usable."""
+    component = SQLAlchemyComponent(url=os.environ["POSTGRESQL_URL"])
+    async with Context() as ctx:
+        await component.start(ctx)
+        session = ctx.require_resource(Session)
+        pool = session.bind.pool
+        session.execute(text("SELECT 1"))
+        assert pool.checkedout() == 1
+        session.close()
+        assert pool.checkedout() == 0
+        session.execute(text("SELECT 1"))
+        assert pool.checkedout() == 1
+
+    assert pool.checkedout() == 0
+
+
+@pytest.mark.asyncio
+async def test_close_twice_async():
+    """Test that closing a session releases connection resources, but remains usable."""
+    pytest.importorskip("asyncpg", reason="asyncpg is not available")
+    url = os.environ["POSTGRESQL_URL"].replace("psycopg2", "asyncpg")
+    component = SQLAlchemyComponent(url=url)
+    async with Context() as ctx:
+        await component.start(ctx)
+        session = ctx.require_resource(AsyncSession)
+        pool = session.bind.pool
+        await session.execute(text("SELECT 1"))
+        assert pool.checkedout() == 1
+        await session.close()
+        assert pool.checkedout() == 0
+        await session.execute(text("SELECT 1"))
+        assert pool.checkedout() == 1
+
+    assert pool.checkedout() == 0
 
 
 def test_no_url_or_bind():
@@ -92,34 +139,32 @@ def test_no_url_or_bind():
 
 
 @pytest.mark.parametrize("raise_exception", [False, True])
-@pytest.mark.parametrize(
-    "commit_executor",
-    [None, "default", "instance"],
-    ids=["none", "default", "instance"],
-)
 @pytest.mark.asyncio
-async def test_finish_commit(raise_exception, executor, commit_executor, tmpdir):
+async def test_finish_commit(raise_exception, tmp_path):
     """
-    Tests that the session is automatically committed if and only if the context was not exited
-    with an exception.
+    Tests that the session is automatically committed if and only if the context was not
+    exited with an exception.
 
     """
-    db_path = tmpdir.join("test.db")
-    engine = create_engine("sqlite:///%s" % db_path, poolclass=NullPool)
-    engine.execute("CREATE TABLE foo (id INTEGER PRIMARY KEY)")
+    db_path = tmp_path / "test.db"
+    engine = create_engine(f"sqlite:///{db_path}", poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE foo (id INTEGER PRIMARY KEY)"))
 
-    component = SQLAlchemyComponent(
-        url={"drivername": "sqlite", "database": str(db_path)},
-        commit_executor=executor if commit_executor == "instance" else commit_executor,
-    )
-    ctx = Context()
-    ctx.add_resource(executor, types=[Executor])
-    await component.start(ctx)
-    ctx.sql.execute("INSERT INTO foo (id) VALUES(3)")
-    await ctx.close(Exception("dummy") if raise_exception else None)
+        component = SQLAlchemyComponent(
+            url={"drivername": "sqlite", "database": str(db_path)},
+        )
+        with ExitStack() as stack:
+            async with Context() as ctx:
+                await component.start(ctx)
+                session = ctx.require_resource(Session)
+                session.execute(text("INSERT INTO foo (id) VALUES(3)"))
+                if raise_exception:
+                    stack.enter_context(pytest.raises(Exception, match="dummy"))
+                    raise Exception("dummy")
 
-    rows = engine.execute("SELECT * FROM foo").fetchall()
-    assert len(rows) == (0 if raise_exception else 1)
+        rows = connection.execute(text("SELECT * FROM foo")).fetchall()
+        assert len(rows) == (0 if raise_exception else 1)
 
 
 @pytest.mark.asyncio
@@ -128,7 +173,7 @@ async def test_memory_leak():
     component = SQLAlchemyComponent(url="sqlite:///:memory:")
     async with Context() as ctx:
         await component.start(ctx)
-        assert isinstance(ctx.sql, Session)
+        ctx.require_resource(Session)
 
     del ctx
     gc.collect()  # needed on PyPy

@@ -1,7 +1,22 @@
 Version history
 ===============
 
-This library adheres to `Semantic Versioning <http://semver.org/>`_.
+This library adheres to `Semantic Versioning <https://semver.org/>`_.
+
+**UNRELEASED**
+
+- **BACKWARD INCOMPATIBLE** Switched to Asphalt 4.7+ and SQLAlchemy 1.4+
+- **BACKWARD INCOMPATIBLE** Synchronous engines and sessions are now always created with
+  ``future=True`` for SQLAlchemy 2.0 style operation
+- **BACKWARD INCOMPATIBLE** Refactored component to only provide a single set of engine,
+  sessionmaker and session (you will have to add two components to get two sets)
+- **BACKWARD INCOMPATIBLE** Dropped the context attribute (use dependency injection
+  instead)
+- **BACKWARD INCOMPATIBLE** The ``session`` option was renamed to ``session_args``
+- **BACKWARD INCOMPATIBLE** Engine arguments must now be passed via ``engine_args``
+- **BACKWARD INCOMPATIBLE** The ``commit_executor`` option was removed
+- Added support for asynchronous sessions
+- Revised the recommended testing procedure
 
 **3.2.0** (2021-12-20)
 

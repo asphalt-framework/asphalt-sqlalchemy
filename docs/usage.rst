@@ -1,76 +1,108 @@
 Using engines and sessions
 ==========================
 
-SQLAlchemy, by its nature, operates in a blocking manner. That is, running a query against the
-database will block the event loop. This includes implicit queries triggered by accessing lazily
-loaded relationships and deferred columns.
+Most of the time, developers will use the provided SQLAlchemy sessions (sync or async)
+and won't be interested in the other provided resources, except in some special
+circumstances. The SQLAlchemy component's session resource factory manages these
+sessions in such a way that any open transaction is committed when the context ends,
+unless an unhandled exception causes the context to be closed, in which case the
+transaction will be rolled back. All connection resources are released when the context
+closes either way.
 
-While simple queries usually complete in a timely manner, it is often difficult to predict the
-performance of interactions with such blocking APIs. The database server might be slow or
-completely unreachable, in which case your whole application hangs during the query. Even when it
-does not, your queries might gradually get slower due to increasing amounts of data. For these
-reasons, it is recommended that you handle your SQLAlchemy interactions in worker threads. The
-:class:`~asphalt.core.context.Context` class provides a few conveniences for this purpose.
-
-.. seealso:: :doc:`asphalt:userguide/concurrency`
-
-Transactions
-------------
-
-In asphalt-sqlalchemy, database connections are made on demand when you request a connection,
-either via one of the methods in the :class:`~asphalt.core.context.Context` class or by directly
-accessing the appropriate context attribute of the connection resource. The resulting connection
-begins a transaction that is automatically committed when the context is was created through is
-torn down, unless the context was ended by an unhandled exception. The connection is always closed
-in either case.
-
-Working with core queries
--------------------------
-
-If you're not familiar with SQLAlchemy's core functionality, you should take a look at the
-`SQL Expression Language Tutorial`_ first.
-
-Here's how the above example would work using core queries::
-
-    async def handler(ctx):
-        # Database queries can block the event loop, so run this in a thread pool
-        async with ctx.threadpool():
-            parent_id = ctx.sql.scalar(select([people.c.id]).where(name='Senior'))
-            ctx.sql.execute(people.insert().values(name='Junior'))
-
-        # Commit happens automatically when the context is torn down
-
-.. _SQL Expression Language Tutorial: http://docs.sqlalchemy.org/en/latest/core/tutorial.html
-
-Working with the Object Relational Mapper (ORM)
------------------------------------------------
-
-If you're not familiar with SQLAlchemy's ORM, you should look through the
-`Object Relational Tutorial`_ first.
-
-The previous example would look like this, rewritten for the ORM::
-
-    async def handler(ctx):
-        async with ctx.threadpool():
-            parent = ctx.sql.query(Person).filter_by(name='Senior').one()
-            parent.children.append(Person(name='Junior'))
-
-.. _Object Relational Tutorial: http://docs.sqlalchemy.org/en/latest/orm/tutorial.html
-
-Loading data at application startup
+Working with the SQLAlchemy session
 -----------------------------------
 
-It is unadvisable to use connection or session resources from a long lived context. This would
-unnecessarily tie up connection resources, and if the connection is used repeatedly, it may get
-stale data due to transaction isolation.
+If you're not familiar with SQLAlchemy's sessions, you should look through the
+`SQLAlchemy session documentation`_ first.
 
-A better way is to create a throwaway child context when you need to load initial data for the
-application::
+A basic use case which loads a specific person record from the database and adds a
+new related object to it would look like this::
 
-    class ApplicationComponent(ContainerComponent):
-        async def start(ctx):
-            # ctx here is the root context
-            async with Context(ctx) as subctx:
-                self.employees = subctx.sql.query(Employee).all()
+    from asphalt.core import Dependency, inject
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.future import select
 
-The connection and session will be automatically closed once the context manager block is exited.
+    from yourapp.model import Person
+
+
+    @inject
+    async def handler(dbsession: AsyncSession = Dependency()):
+        parent = await dbsession.scalar(select(Person).filter_by(name='Senior'))
+        parent.children.append(Person(name='Junior'))
+        await dbsession.flush()
+
+The flush operation at the end causes the ``INSERT`` command to be emitted, but does not
+commit the transaction. The transaction is committed when the context ends successfully.
+You can of course call ``dbsession.commit()`` instead of ``dbsession.flush()`` to commit
+the transaction then and there.
+
+.. _SQLAlchemy session documentation: https://docs.sqlalchemy.org/en/14/orm/session.html
+
+Working with synchronous sessions
+---------------------------------
+
+If you're fortunate enough to be able to use an asynchronous engine for your use case,
+you can skip this section. For those having to use engines for which no async
+counterpart is available, read on.
+
+Synchronous database connections in an asynchronous application pose a problem because
+running operations against a database will block the event loop, and thus need to be
+wrapped in worker threads. Another thing to watch out for is lazy loading of
+relationships and deferred columns which triggers implicit queries when those attributes
+are accessed.
+
+On Python 3.9 and above, you would do::
+
+    from asyncio import to_thread
+
+    from asphalt.core import Dependency, inject
+    from sqlalchemy.orm import Session
+    from sqlalchemy.future import select
+
+    from yourapp.model import Person
+
+
+    @inject
+    async def handler(dbsession: Session = Dependency()):
+        people = await to_thread(dbsession.scalars, select(Person))
+
+
+On earlier Python versions::
+
+    from asyncio import get_running_loop
+
+    from asphalt.core import Dependency, inject
+    from sqlalchemy.orm import Session
+    from sqlalchemy.future import select
+
+    from yourapp.model import Person
+
+
+    @inject
+    async def handler(dbsession: Session = Dependency()):
+        loop = get_running_loop()
+        people = await loop.run_in_executor(None, dbsession.scalars, select(Person))
+
+Releasing database resources during a long operation
+----------------------------------------------------
+
+If you are running a long operation and you're unnecessarily holding onto a database
+connection (if, say, you needed data from the database to start the operation, you can
+release those resources by closing the session after the initial use::
+
+    from asphalt.core import Dependency, inject
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.future import select
+
+    from yourapp.model import Person
+
+
+    @inject
+    async def work_task(dbsession: AsyncSession = Dependency()):
+        person = await dbsession.scalar(select(Person).limit(1))
+        await dbsession.close()
+        ...  # work with the data
+        dbsession.add(some_object)
+        await dbsession.flush()
+
+The session will reacquire a connection when it needs to perform a database operation.

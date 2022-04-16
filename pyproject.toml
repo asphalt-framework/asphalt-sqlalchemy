@@ -26,8 +26,8 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
-    "asphalt ~= 4.6.0",
-    "SQLAlchemy >= 1.0.10",
+    "asphalt ~= 4.7",
+    "SQLAlchemy[asyncio] >= 1.4.30",
     "typeguard ~= 2.0",
 ]
 dynamic = ["version"]
@@ -37,11 +37,15 @@ Homepage = "https://github.com/asphalt-framework/asphalt-sqlalchemy"
 
 [project.optional-dependencies]
 test = [
+    "aiosqlite",
+    "asyncmy; platform_python_implementation == 'CPython'",
+    "asyncpg; platform_python_implementation == 'CPython'",
     "pymysql",
     "psycopg2cffi",
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
+    "pytest-lazy-fixture",
 ]
 doc = [
     "Sphinx >= 1.5",
@@ -63,15 +67,17 @@ skip_gitignore = true
 profile = "black"
 
 [tool.flake8]
-max-line-length = 99
+max-line-length = 88
 
 [tool.pytest.ini_options]
 addopts = "-rsx --tb=short"
+asyncio_mode = "strict"
 testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.7"
 ignore_missing_imports = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
 
 [tool.coverage.run]
 source = ["asphalt.sqlalchemy"]
@@ -94,6 +100,7 @@ commands = python -m pytest {posargs}
 setenv =
   MYSQL_URL = mysql+pymysql://root@localhost:33060/asphalttest
   POSTGRESQL_URL = postgresql+psycopg2://postgres:secret@localhost:54320/asphalttest
+  SQLALCHEMY_WARN_20 = 1
 
 [testenv:docs]
 extras = doc

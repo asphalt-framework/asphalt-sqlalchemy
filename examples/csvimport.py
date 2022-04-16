@@ -1,6 +1,6 @@
 """
-A simple example that imports a tab-delimited CSV file (people.csv) into an SQLite database
-(people.db).
+A simple example that imports a tab-delimited CSV file (people.csv) into an SQLite
+database (people.db).
 
 This version of the example uses SQLAlchemy core.
 """
@@ -9,7 +9,14 @@ import csv
 import logging
 from pathlib import Path
 
-from asphalt.core import CLIApplicationComponent, Context, run_application
+from asphalt.core import (
+    CLIApplicationComponent,
+    Context,
+    Dependency,
+    inject,
+    run_application,
+)
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.schema import Column, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer, Unicode
 
@@ -44,14 +51,15 @@ class CSVImporterComponent(CLIApplicationComponent):
         )
         await super().start(ctx)
 
-    async def run(self, ctx: Context):
+    @inject
+    async def run(self, ctx: Context, dbsession: Session = Dependency()):
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
                 reader = csv.reader(csvfile, delimiter="|")
                 for name, city, phone, email in reader:
                     num_rows += 1
-                    ctx.sql.execute(
+                    dbsession.execute(
                         people.insert().values(
                             name=name, city=city, phone=phone, email=email
                         )

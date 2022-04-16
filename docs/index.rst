@@ -14,5 +14,4 @@ Table of contents
    testing
    tips_tricks
    versionhistory
-
-* :ref:`API reference <modindex>`
+   py-modindex

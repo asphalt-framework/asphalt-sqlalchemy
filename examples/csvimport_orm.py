@@ -1,6 +1,6 @@
 """
-A simple example that imports a tab-delimited CSV file (people.csv) into an SQLite database
-(people.db).
+A simple example that imports a tab-delimited CSV file (people.csv) into an SQLite
+database (people.db).
 
 This version of the example uses SQLAlchemy ORM.
 """
@@ -9,8 +9,14 @@ import csv
 import logging
 from pathlib import Path
 
-from asphalt.core import CLIApplicationComponent, Context, run_application
-from sqlalchemy.ext.declarative.api import declarative_base
+from asphalt.core import (
+    CLIApplicationComponent,
+    Context,
+    Dependency,
+    inject,
+    run_application,
+)
+from sqlalchemy.orm import Session, declarative_base
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.sql.sqltypes import Integer, Unicode
 
@@ -46,17 +52,21 @@ class CSVImporterComponent(CLIApplicationComponent):
         )
         await super().start(ctx)
 
-    async def run(self, ctx: Context):
+    @inject
+    async def run(self, ctx: Context, dbsession: Session = Dependency()):
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
                 reader = csv.reader(csvfile, delimiter="|")
                 for name, city, phone, email in reader:
                     num_rows += 1
-                    ctx.sql.add(Person(name=name, city=city, phone=phone, email=email))
+                    dbsession.add(
+                        Person(name=name, city=city, phone=phone, email=email)
+                    )
 
-            # Emit pending INSERTs (though this would happen when the context ends anyway)
-            ctx.sql.flush()
+            # Emit pending INSERTs (though this would happen when the context ends
+            # anyway)
+            dbsession.flush()
 
         logger.info("Imported %d rows of data", num_rows)
 
