@@ -40,31 +40,6 @@ async def test_component_start_async():
         ctx.require_resource(AsyncSession)
 
 
-@pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
-@pytest.mark.asyncio
-async def test_ready_callback(asynchronous):
-    def ready_callback(engine, factory):
-        nonlocal engine2, factory2
-        engine2 = engine
-        factory2 = factory
-
-    async def ready_callback_async(engine, factory):
-        nonlocal engine2, factory2
-        engine2 = engine
-        factory2 = factory
-
-    engine2 = factory2 = None
-    callback = ready_callback_async if asynchronous else ready_callback
-    component = SQLAlchemyComponent(url="sqlite:///:memory:", ready_callback=callback)
-    async with Context() as ctx:
-        await component.start(ctx)
-
-        engine = ctx.require_resource(Engine)
-        factory = ctx.require_resource(sessionmaker)
-        assert engine is engine2
-        assert factory is factory2
-
-
 @pytest.mark.asyncio
 async def test_bind_sync():
     """Test that a Connection can be passed as "bind" in place of "url"."""
