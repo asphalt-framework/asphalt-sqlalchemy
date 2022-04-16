@@ -67,6 +67,10 @@ class SQLAlchemyComponent(Component):
         :class:`~sqlalchemy.ext.asyncio.AsyncSession`
     :param commit_executor_workers: maximum number of worker threads to use for tearing
         down synchronous sessions (default: 5; ignored for asynchronous engines)
+    :param poolclass: the SQLAlchemy pool class (or a textual reference to one) to use;
+        passed to :func:`sqlalchemy.future.engine.create_engine` or
+        :func:`sqlalchemy.ext.asyncio.create_engine`
+    :param resource_name: name space for the database resources
     """
 
     commit_executor: ThreadPoolExecutor
