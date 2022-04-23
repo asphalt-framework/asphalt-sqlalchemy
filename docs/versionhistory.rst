@@ -5,7 +5,7 @@ This library adheres to `Semantic Versioning <https://semver.org/>`_.
 
 **4.0.0** (2022-04-17)
 
-- **BACKWARD INCOMPATIBLE** Switched to Asphalt 4.7+ and SQLAlchemy 1.4+
+- **BACKWARD INCOMPATIBLE** Switched to Asphalt 4.8+ and SQLAlchemy 1.4+
 - **BACKWARD INCOMPATIBLE** Synchronous engines and sessions are now always created with
   ``future=True`` for SQLAlchemy 2.0 style operation
 - **BACKWARD INCOMPATIBLE** Refactored component to only provide a single set of engine,

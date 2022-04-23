@@ -12,8 +12,8 @@ from pathlib import Path
 from asphalt.core import (
     CLIApplicationComponent,
     Context,
-    Dependency,
     inject,
+    resource,
     run_application,
 )
 from sqlalchemy.orm import Session, declarative_base
@@ -53,7 +53,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         await super().start(ctx)
 
     @inject
-    async def run(self, ctx: Context, dbsession: Session = Dependency()):
+    async def run(self, ctx: Context, dbsession: Session = resource()):
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
