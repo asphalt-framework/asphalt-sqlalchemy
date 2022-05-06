@@ -43,7 +43,6 @@ test = [
     "pymysql",
     "psycopg2cffi",
     "pytest",
-    "pytest-cov",
     "pytest-asyncio",
     "pytest-lazy-fixture",
 ]
