@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Optional, Type, Union, cast
+from inspect import isawaitable
+from typing import Any, Callable, Dict, Optional, Type, Union, cast
 
 from asphalt.core import (
     Component,
@@ -83,12 +84,14 @@ class SQLAlchemyComponent(Component):
         engine_args: Optional[Dict[str, Any]] = None,
         session_args: Optional[Dict[str, Any]] = None,
         commit_executor_workers: int = 5,
+        ready_callback: Union[Callable[[Engine, sessionmaker], Any], str] = None,
         poolclass: Union[str, Pool] = None,
         resource_name: str = "default",
     ):
         check_argument_types()
         self.resource_name = resource_name
         self.commit_executor_workers = commit_executor_workers
+        self.ready_callback = resolve_reference(ready_callback)
         engine_args = engine_args or {}
         session_args = session_args or {}
         session_args["expire_on_commit"] = False
@@ -168,6 +171,11 @@ class SQLAlchemyComponent(Component):
 
     @context_teardown
     async def start(self, ctx: Context):
+        if self.ready_callback:
+            retval = self.ready_callback(self.bind, self.sessionmaker)
+            if isawaitable(retval):
+                await retval
+
         ctx.add_resource(self.engine, self.resource_name)
         ctx.add_resource(self.sessionmaker, self.resource_name)
         if isinstance(self.engine, AsyncEngine):

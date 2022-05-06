@@ -3,7 +3,7 @@ Version history
 
 This library adheres to `Semantic Versioning <https://semver.org/>`_.
 
-**4.0.0** (2022-04-17)
+**UNRELEASED**
 
 - **BACKWARD INCOMPATIBLE** Switched to Asphalt 4.8+ and SQLAlchemy 1.4+
 - **BACKWARD INCOMPATIBLE** Synchronous engines and sessions are now always created with
@@ -15,7 +15,6 @@ This library adheres to `Semantic Versioning <https://semver.org/>`_.
 - **BACKWARD INCOMPATIBLE** The ``session`` option was renamed to ``session_args``
 - **BACKWARD INCOMPATIBLE** Engine arguments must now be passed via ``engine_args``
 - **BACKWARD INCOMPATIBLE** The ``commit_executor`` option was removed
-- **BACKWARD INCOMPATIBLE** Removed the ``ready_callback`` option
 - Added support for asynchronous sessions
 - Revised the recommended testing procedure
 
