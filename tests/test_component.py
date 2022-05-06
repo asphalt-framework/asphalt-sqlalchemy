@@ -1,5 +1,4 @@
 import gc
-import os
 from contextlib import ExitStack
 
 import pytest
@@ -96,9 +95,9 @@ async def test_bind_async():
 
 
 @pytest.mark.asyncio
-async def test_close_twice_sync(patch_psycopg2):
+async def test_close_twice_sync(patch_psycopg2, psycopg2_url):
     """Test that closing a session releases connection resources, but remains usable."""
-    component = SQLAlchemyComponent(url=os.environ["POSTGRESQL_URL"])
+    component = SQLAlchemyComponent(url=psycopg2_url)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(Session)
@@ -114,11 +113,9 @@ async def test_close_twice_sync(patch_psycopg2):
 
 
 @pytest.mark.asyncio
-async def test_close_twice_async():
+async def test_close_twice_async(asyncpg_url):
     """Test that closing a session releases connection resources, but remains usable."""
-    pytest.importorskip("asyncpg", reason="asyncpg is not available")
-    url = os.environ["POSTGRESQL_URL"].replace("psycopg2", "asyncpg")
-    component = SQLAlchemyComponent(url=url)
+    component = SQLAlchemyComponent(url=asyncpg_url)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(AsyncSession)

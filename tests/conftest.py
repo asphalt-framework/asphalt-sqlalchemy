@@ -20,6 +20,34 @@ def event_loop():
 
 
 @pytest.fixture(scope="session")
+def psycopg2_url() -> str:  # type: ignore[return]
+    try:
+        return os.environ["POSTGRESQL_URL"]
+    except KeyError:
+        pytest.skip("POSTGRESQL_URL environment variable is not set")
+
+
+@pytest.fixture(scope="session")
+def asyncpg_url(psycopg2_url) -> str:
+    pytest.importorskip("asyncpg", reason="asyncpg is not available")
+    return psycopg2_url.replace("psycopg2", "asyncpg")
+
+
+@pytest.fixture(scope="session")
+def mysql_url() -> str:  # type: ignore[return]
+    try:
+        return os.environ["MYSQL_URL"]
+    except KeyError:
+        pytest.skip("MYSQL_URL environment variable is not set")
+
+
+@pytest.fixture(scope="session")
+def asyncmy_url(mysql_url) -> str:
+    pytest.importorskip("asyncmy", reason="asyncmy is not available")
+    return mysql_url.replace("pymysql", "asyncmy")
+
+
+@pytest.fixture(scope="session")
 def patch_psycopg2():
     from psycopg2cffi import compat
 
@@ -27,27 +55,17 @@ def patch_psycopg2():
 
 
 @pytest.fixture(scope="session")
-def pymysql_engine():
-    try:
-        url = os.environ["MYSQL_URL"]
-    except KeyError:
-        pytest.skip("MYSQL_URL environment variable is not set")
-    else:
-        engine = create_engine(url)
-        yield engine
-        engine.dispose()
+def pymysql_engine(mysql_url):
+    engine = create_engine(mysql_url)
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture(scope="session")
-def psycopg2_engine(patch_psycopg2):
-    try:
-        url = os.environ["POSTGRESQL_URL"]
-    except KeyError:
-        pytest.skip("POSTGRESQL_URL environment variable is not set")
-    else:
-        engine = create_engine(url)
-        yield engine
-        engine.dispose()
+def psycopg2_engine(patch_psycopg2, psycopg2_url):
+    engine = create_engine(psycopg2_url)
+    yield engine
+    engine.dispose()
 
 
 @pytest.fixture(scope="session")
@@ -93,29 +111,17 @@ async def aiosqlite_file_engine(tmp_path_factory):
 
 
 @pytest_asyncio.fixture(scope="session")
-async def asyncpg_engine():
-    try:
-        url = os.environ["POSTGRESQL_URL"].replace("psycopg2", "asyncpg")
-    except KeyError:
-        pytest.skip("POSTGRESQL_URL environment variable is not set")
-    else:
-        pytest.importorskip("asyncpg", reason="asyncpg is not available")
-        engine = create_async_engine(url)
-        yield engine
-        await engine.dispose()
+async def asyncpg_engine(asyncpg_url):
+    engine = create_async_engine(asyncpg_url)
+    yield engine
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="session")
-async def asyncmy_engine():
-    try:
-        url = os.environ["MYSQL_URL"].replace("pymysql", "asyncmy")
-    except KeyError:
-        pytest.skip("MYSQL_URL environment variable is not set")
-    else:
-        pytest.importorskip("asyncmy", reason="asyncmy is not available")
-        engine = create_async_engine(url)
-        yield engine
-        await engine.dispose()
+async def asyncmy_engine(asyncmy_url):
+    engine = create_async_engine(asyncmy_url)
+    yield engine
+    await engine.dispose()
 
 
 @pytest.fixture(
