@@ -50,6 +50,7 @@ doc = [
     "Sphinx >= 1.5",
     "sphinx_rtd_theme",
     "sphinx-autodoc-typehints >= 1.2.0",
+    "sphinx-tabs >= 3.3.1",
     "sphinxcontrib-asyncio >= 0.2.0",
 ]
 
