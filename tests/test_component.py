@@ -1,9 +1,12 @@
 import gc
 from contextlib import ExitStack
+from threading import Thread, current_thread
 
 import pytest
-from asphalt.core.context import Context
+from asphalt.core import NoCurrentContext, current_context
+from asphalt.core.context import Context, get_resource
 from sqlalchemy.engine.url import URL
+from sqlalchemy.event import listen, remove
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.orm.session import Session, sessionmaker
@@ -11,6 +14,8 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.sql import text
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
+
+from .model import Person
 
 
 @pytest.mark.asyncio
@@ -175,3 +180,71 @@ async def test_memory_leak():
     del ctx
     gc.collect()  # needed on PyPy
     assert next((x for x in gc.get_objects() if isinstance(x, Context)), None) is None
+
+
+@pytest.mark.asyncio
+async def test_session_event_sync(psycopg2_url):
+    """Test that creating a session in a context does not leak memory."""
+    listener_session: Session
+    listener_thread: Thread
+
+    def listener(session: Session) -> None:
+        nonlocal listener_session, listener_thread
+        current_context()
+        listener_session = session
+        listener_thread = current_thread()
+
+    component = SQLAlchemyComponent(url=psycopg2_url)
+    async with Context() as ctx:
+        await component.start(ctx)
+        Person.metadata.create_all(ctx.require_resource(Engine))
+        session_factory = ctx.require_resource(sessionmaker)
+        listen(session_factory, "before_commit", listener)
+
+        dbsession = ctx.require_resource(Session)
+        dbsession.add(Person(name="Test person"))
+
+    assert listener_session is dbsession
+    assert listener_thread != current_thread()
+
+
+@pytest.mark.asyncio
+async def test_session_event_async(request, asyncpg_url, psycopg2_url):
+    """Test that creating a session in a context does not leak memory."""
+    listener_session: Session
+    listener_thread: Thread
+
+    def listener(session: Session) -> None:
+        nonlocal listener_session, listener_thread
+        try:
+            async_session = get_resource(AsyncSession)
+        except NoCurrentContext:
+            return
+
+        if async_session and session is async_session.sync_session:
+            listener_session = session
+            listener_thread = current_thread()
+
+    listen(Session, "before_commit", listener)
+    request.addfinalizer(lambda: remove(Session, "before_commit", listener))
+    component = SQLAlchemyComponent(url=asyncpg_url)
+    async with Context() as ctx:
+        await component.start(ctx)
+        dbsession = ctx.require_resource(AsyncSession)
+        await dbsession.run_sync(
+            lambda session: Person.metadata.create_all(session.bind)
+        )
+        dbsession.add(Person(name="Test person"))
+
+    assert listener_session is dbsession.sync_session
+    assert listener_thread is current_thread()
+
+    engine = create_engine(psycopg2_url)
+    with Session(engine) as sess:
+        sess.add(Person(name="Test person 2"))
+        sess.commit()
+
+    engine.dispose()
+
+    assert listener_session is dbsession.sync_session
+    assert listener_thread is current_thread()

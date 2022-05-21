@@ -15,6 +15,8 @@ This library adheres to `Semantic Versioning <https://semver.org/>`_.
 - **BACKWARD INCOMPATIBLE** The ``session`` option was renamed to ``session_args``
 - **BACKWARD INCOMPATIBLE** Engine arguments must now be passed via ``engine_args``
 - **BACKWARD INCOMPATIBLE** The ``commit_executor`` option was removed
+- **BACKWARD INCOMPATIBLE** The context is no longer stored in ``session.info["ctx"]``;
+  use ``current_context()`` instead to get the context object
 - Added support for asynchronous sessions
 - Revised the recommended testing procedure
 

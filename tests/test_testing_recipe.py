@@ -10,21 +10,12 @@ from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import Session, declarative_base
-from sqlalchemy.schema import Column
+from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import delete, func
-from sqlalchemy.types import Integer, Unicode
 
 from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
-Base = declarative_base()
-
-
-class Person(Base):
-    __tablename__ = "people"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode(100), nullable=False)
+from .model import Base, Person
 
 
 class TestSyncRecipe:

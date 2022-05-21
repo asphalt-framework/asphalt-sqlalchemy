@@ -149,9 +149,8 @@ class SQLAlchemyComponent(Component):
                         session.rollback()
             finally:
                 session.close()
-                del session.info["ctx"]
 
-        session = self.sessionmaker(info={"ctx": ctx})
+        session = self.sessionmaker()
         ctx.add_teardown_callback(teardown_session, pass_exception=True)
         return session
 
@@ -165,9 +164,8 @@ class SQLAlchemyComponent(Component):
                         await session.rollback()
             finally:
                 await session.close()
-                del session.info["ctx"]
 
-        session: AsyncSession = self.sessionmaker(info={"ctx": ctx})
+        session: AsyncSession = self.sessionmaker()
         ctx.add_teardown_callback(teardown_session, pass_exception=True)
         return session
 
