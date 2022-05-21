@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import logging
+from asyncio import get_running_loop
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from inspect import isawaitable
-from typing import Any, Callable, Dict, Optional, Type, Union, cast
+from typing import Any, cast
 
-from asphalt.core import (
-    Component,
-    Context,
-    context_teardown,
-    executor,
-    resolve_reference,
-)
+from asphalt.core import Component, Context, context_teardown, resolve_reference
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import (
@@ -23,7 +20,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.future.engine import Connection, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import Pool
-from typeguard import check_argument_types
 
 from asphalt.sqlalchemy.utils import apply_sqlite_hacks
 
@@ -81,16 +77,15 @@ class SQLAlchemyComponent(Component):
     def __init__(
         self,
         *,
-        url: Union[str, URL, Dict[str, Any]] = None,
-        bind: Union[Connection, Engine, AsyncConnection, AsyncEngine] = None,
-        engine_args: Optional[Dict[str, Any]] = None,
-        session_args: Optional[Dict[str, Any]] = None,
+        url: str | URL | dict[str, Any] | None = None,
+        bind: Connection | Engine | AsyncConnection | AsyncEngine | None = None,
+        engine_args: dict[str, Any] | None = None,
+        session_args: dict[str, Any] | None = None,
         commit_executor_workers: int = 5,
-        ready_callback: Union[Callable[[Engine, sessionmaker], Any], str] = None,
-        poolclass: Union[str, Pool] = None,
+        ready_callback: Callable[[Engine, sessionmaker], Any] | str | None = None,
+        poolclass: str | type[Pool] | None = None,
         resource_name: str = "default",
     ):
-        check_argument_types()
         self.resource_name = resource_name
         self.commit_executor_workers = commit_executor_workers
         self.ready_callback = resolve_reference(ready_callback)
@@ -120,7 +115,7 @@ class SQLAlchemyComponent(Component):
             if isinstance(poolclass, str):
                 poolclass = resolve_reference(poolclass)
 
-            pool_class = cast(Type[Pool], poolclass)
+            pool_class = cast("type[Pool]", poolclass)
             try:
                 self.engine = self.bind = create_async_engine(
                     url, poolclass=pool_class, **engine_args
@@ -140,7 +135,7 @@ class SQLAlchemyComponent(Component):
 
     def create_session(self, ctx: Context) -> Session:
         @executor(self.commit_executor)
-        def teardown_session(exception: Optional[BaseException]) -> None:
+        def teardown_session(exception: BaseException | None) -> None:
             try:
                 if session.in_transaction():
                     if exception is None:
@@ -155,7 +150,7 @@ class SQLAlchemyComponent(Component):
         return session
 
     def create_async_session(self, ctx: Context) -> AsyncSession:
-        async def teardown_session(exception: Optional[BaseException]) -> None:
+        async def teardown_session(exception: BaseException | None) -> None:
             try:
                 if session.in_transaction():
                     if exception is None:

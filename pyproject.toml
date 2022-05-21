@@ -28,7 +28,6 @@ requires-python = ">=3.7"
 dependencies = [
     "asphalt ~= 4.8",
     "SQLAlchemy[asyncio] >= 1.4.30",
-    "typeguard ~= 2.0",
 ]
 dynamic = ["version"]
 
