@@ -134,14 +134,18 @@ class SQLAlchemyComponent(Component):
         self.sessionmaker = sessionmaker(bind=self.bind, **session_args)
 
     def create_session(self, ctx: Context) -> Session:
-        @executor(self.commit_executor)
-        def teardown_session(exception: BaseException | None) -> None:
+        async def teardown_session(exception: BaseException | None) -> None:
             try:
                 if session.in_transaction():
+                    context = copy_context()
                     if exception is None:
-                        session.commit()
+                        await get_running_loop().run_in_executor(
+                            self.commit_executor, context.run, session.commit
+                        )
                     else:
-                        session.rollback()
+                        await get_running_loop().run_in_executor(
+                            self.commit_executor, context.run, session.rollback
+                        )
             finally:
                 session.close()
 
