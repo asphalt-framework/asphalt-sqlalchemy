@@ -34,11 +34,11 @@ people = Table(
 
 
 class CSVImporterComponent(CLIApplicationComponent):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.csv_path = Path(__file__).with_name("people.csv")
 
-    async def start(self, ctx: Context):
+    async def start(self, ctx: Context) -> None:
         # Remove the db file if it exists
         db_path = self.csv_path.with_name("people.db")
         if db_path.exists():
@@ -52,7 +52,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         await super().start(ctx)
 
     @inject
-    async def run(self, ctx: Context, dbsession: Session = resource()):
+    async def run(self, ctx: Context, *, dbsession: Session = resource()) -> None:
         async with ctx.threadpool():
             num_rows = 0
             with self.csv_path.open() as csvfile:
