@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from asyncio import get_running_loop
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextvars import copy_context
 from inspect import isawaitable
@@ -96,7 +96,7 @@ class SQLAlchemyComponent(Component):
 
         if bind:
             self.bind = bind
-            self.engine = bind.engine
+            self.engine = cast("Engine | AsyncEngine", bind.engine)
         else:
             if isinstance(url, dict):
                 url = URL.create(**url)
@@ -169,7 +169,7 @@ class SQLAlchemyComponent(Component):
         return session
 
     @context_teardown
-    async def start(self, ctx: Context):
+    async def start(self, ctx: Context) -> AsyncGenerator[None, Exception | None]:
         if self.ready_callback:
             retval = self.ready_callback(self.bind, self.sessionmaker)
             if isawaitable(retval):

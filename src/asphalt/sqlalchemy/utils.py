@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
