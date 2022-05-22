@@ -3,7 +3,7 @@ Version history
 
 This library adheres to `Semantic Versioning <https://semver.org/>`_.
 
-**UNRELEASED**
+**4.0.0** (2022-05-22)
 
 - **BACKWARD INCOMPATIBLE** Switched to Asphalt 4.9+ and SQLAlchemy 1.4+
 - **BACKWARD INCOMPATIBLE** Synchronous engines and sessions are now always created with
