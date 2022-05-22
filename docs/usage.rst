@@ -18,7 +18,7 @@ If you're not familiar with SQLAlchemy's sessions, you should look through the
 A basic use case which loads a specific person record from the database and adds a
 new related object to it would look like this::
 
-    from asphalt.core import Dependency, inject
+    from asphalt.core import inject, resource
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.future import select
 
@@ -26,7 +26,7 @@ new related object to it would look like this::
 
 
     @inject
-    async def handler(dbsession: AsyncSession = Dependency()):
+    async def handler(*, dbsession: AsyncSession = resource()) -> None:
         parent = await dbsession.scalar(select(Person).filter_by(name='Senior'))
         parent.children.append(Person(name='Junior'))
         await dbsession.flush()
@@ -55,7 +55,7 @@ On Python 3.9 and above, you would do::
 
     from asyncio import to_thread
 
-    from asphalt.core import Dependency, inject
+    from asphalt.core import inject, resource
     from sqlalchemy.orm import Session
     from sqlalchemy.future import select
 
@@ -63,7 +63,7 @@ On Python 3.9 and above, you would do::
 
 
     @inject
-    async def handler(dbsession: Session = Dependency()):
+    async def handler(*, dbsession: Session = resource()) -> None:
         people = await to_thread(dbsession.scalars, select(Person))
 
 
@@ -71,7 +71,7 @@ On earlier Python versions::
 
     from asyncio import get_running_loop
 
-    from asphalt.core import Dependency, inject
+    from asphalt.core import inject, resource
     from sqlalchemy.orm import Session
     from sqlalchemy.future import select
 
@@ -79,7 +79,7 @@ On earlier Python versions::
 
 
     @inject
-    async def handler(dbsession: Session = Dependency()):
+    async def handler(*, dbsession: Session = resource()) -> None:
         loop = get_running_loop()
         people = await loop.run_in_executor(None, dbsession.scalars, select(Person))
 
@@ -90,7 +90,7 @@ If you are running a long operation and you're unnecessarily holding onto a data
 connection (if, say, you needed data from the database to start the operation, you can
 release those resources by closing the session after the initial use::
 
-    from asphalt.core import Dependency, inject
+    from asphalt.core import inject, resource
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.future import select
 
@@ -98,7 +98,7 @@ release those resources by closing the session after the initial use::
 
 
     @inject
-    async def work_task(dbsession: AsyncSession = Dependency()):
+    async def work_task(*, dbsession: AsyncSession = resource()) -> None:
         person = await dbsession.scalar(select(Person).limit(1))
         await dbsession.close()
         ...  # work with the data
