@@ -56,14 +56,15 @@ arguments to the engine, you can do so by specifying them in the ``session`` opt
 Multiple databases
 ------------------
 
-If you need to work with multiple databases, things get a little more complicated.
-You will need to define the engines with the ``engines`` option::
+If you need to work with multiple databases, you will need to use multiple instances
+of the ``sqlalchemy`` component::
 
     components:
       sqlalchemy:
         resource_name: db1
         url: postgresql+asyncpg:///mydatabase
       sqlalchemy2:
+        type: sqlalchemy
         resource_name: db2
         url: sqlite+aiosqlite:///mydb.sqlite
 
