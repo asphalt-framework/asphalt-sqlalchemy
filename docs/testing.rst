@@ -199,7 +199,7 @@ example.
              def setup_schema(sqla_engine):
                  conn = sqla_engine.connect()
                  clear_database(conn)
-                 conn.run_sync(Base.metadata.create_all, checkfirst=False)
+                 Base.metadata.create_all(conn, checkfirst=False)
                  conn.commit()
                  conn.close()
 
