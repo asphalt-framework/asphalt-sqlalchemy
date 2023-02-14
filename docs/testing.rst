@@ -8,22 +8,23 @@ your fixtures accordingly.
 
 The basic idea is to have a session level fixture which creates and engine and then
 makes a single connection, through which all the database interaction will happen during
-the testing session. It should first remove any previously created tables and then
-create the tables from scratch, using the current metadata. This ensures that even if
-the testing session was interrupted previously, the correct set of tables are always
-properly created. Then, during every test a transaction is started and then rolled back
-after the tests, thus ensuring test isolation.
+the testing session. Unless you're running SQLite, PostgreSQL or another RDBMS that
+supports transactional DDL, the fixture should first remove any previously created'
+tables. This ensures that even if the testing session was interrupted previously, the
+correct set of tables are always properly created. On back-ends where transactional DDL
+is supported, rolling back the session scoped connection's transaction will also roll
+back the ``CREATE TABLE`` commands, making the database look empty to any other clients,
+including subsequent (or parallel) test sessions.
+
+Next, it should create the tables from scratch, using the current metadata. Then, a
+test-scoped, autouse fixture should create savepoint in the connection. After the test,
+that savepoint should be restored to ensure test isolation.
 
 In order to force all database interactions to happen within the same transaction, the
-``sqlalchemy`` component is passed the :class:`~sqlalchemy.future.engine.Connection`
-instance created by the connection fixture as the ``bind`` option. This will override
-any ``url`` option passed to the component. When the session's ``bind`` is a
-:class:`~sqlalchemy.future.engine.Connection` and not an
-:class:`~sqlalchemy.future.engine.Engine`, it will not attempt to actually commit the
-transaction. However, special measures must be taken if the application code ever rolls
-back the transaction. Unlike ``commit()``, a ``rollback()`` call from a session does end
-the underlying transaction. To counter that, a session listener must be set up which
-restarts the transaction immediately after a session rolls it back.
+``sqlalchemy`` component is passed the connection object created by the connection
+fixture as the ``bind`` option. This will override any ``url`` option passed to the
+component. When a session sees that its connection is part of an externally managed
+transaction, it will not try to actually commit it.
 
 This technique is based on a chapter of `SQLAlchemy documentation`_ dealing with
 testing.
@@ -70,7 +71,6 @@ example.
             from asphalt.sqlalchemy.utils import clear_async_database
             from sqlalchemy import create_engine, event
             from sqlalchemy.ext.asyncio import AsyncSession
-            from sqlalchemy.orm import Session
 
             from yourapp.component import ApplicationComponent
             from yourapp.models import Base, Person
@@ -85,60 +85,23 @@ example.
                 loop.close()
 
 
-            @pytest.fixture(scope="session")
-            def sqla_engine():
+            @pytest_asyncio.fixture(scope="session")
+            async def connection():
                 # For SQLite, some additional hacks are required:
                 #
                 # from asphalt.sqlalchemy.utils import apply_sqlite_hacks
                 # engine = create_engine("sqlite+aiosqlite:///:memory:")
                 # apply_sqlite_hacks(engine)
+
                 engine = create_engine("postgresql+asyncpg://user:password@localhost/test")
-                yield engine
-                engine.dispose()
+                async with engine.connect() as conn:
+                    # Clear out previous tables (optional on sqlite, PostgreSQL,
+                    # possibly others too where transactional DDL is supported)
+                    await clear_async_database(conn)
+                    await conn.run_sync(Base.metadata.create_all, checkfirst=False)
+                    yield conn
 
-
-            @pytest_asyncio.fixture(scope="session")
-            async def setup_schema(sqla_engine):
-                conn = await sqla_engine.connect()
-                await clear_async_database(conn)
-                await conn.run_sync(Base.metadata.create_all, checkfirst=False)
-                await conn.commit()
-                await conn.close()
-
-
-            @pytest_asyncio.fixture(scope="session", autouse=True)
-            def person(sqla_engine, setup_schema):
-                # Add some base data to the database here (if necessary for your application)
-                async with AsyncSession(sqla_engine, expire_on_commit=False) as session:
-                    person = Person(name="Test person")
-                    session.add(person)
-                    await session.commit()
-                    return person
-
-
-            @pytest_asyncio.fixture
-            async def connection(sqla_engine):
-                def restart(session, transaction):
-                    nonlocal nested
-                    if not nested.is_active:
-                        adapted_connection = (
-                            conn.sync_connection.connection.dbapi_connection
-                        )
-                        nested = adapted_connection.run_async(
-                            lambda c: conn.begin_nested()
-                        )
-
-                conn = await sqla_engine.connect()
-                tx = await conn.begin()
-                nested = await conn.begin_nested()
-                event.listen(Session, "after_transaction_end", restart)
-
-                yield conn
-
-                event.remove(Session, "after_transaction_end", restart)
-                await nested.rollback()
-                await tx.rollback()
-                await conn.close()
+                await engine.dispose()
 
 
             @pytest.fixture
@@ -171,103 +134,127 @@ example.
 
          .. code-tab:: python3 conftest.py
 
-             import pytest
-             from asphalt.sqlalchemy.utils import clear_database
-             from sqlalchemy import create_engine, event
-             from sqlalchemy.orm import Session
+            import pytest
+            from asphalt.sqlalchemy.utils import clear_database
+            from sqlalchemy import create_engine, event
+            from sqlalchemy.orm import Session
 
-             from yourapp.component import ApplicationComponent
-             from yourapp.models import Base, Person
-
-
-             @pytest.fixture(scope="session")
-             def sqla_engine():
-                 # For SQLite, some additional hacks are required:
-                 #
-                 # from asphalt.sqlalchemy.utils import apply_sqlite_hacks
-                 # engine = create_engine(
-                 #     "sqlite:///:memory:",
-                 #     connect_args={"check_same_thread": False}
-                 # )
-                 # apply_sqlite_hacks(engine)
-                 engine = create_engine("postgresql+psycopg2://user:password@localhost/test")
-                 yield engine
-                 engine.dispose()
+            from yourapp.component import ApplicationComponent
+            from yourapp.models import Base, Person
 
 
-             @pytest.fixture(scope="session")
-             def setup_schema(sqla_engine):
-                 conn = sqla_engine.connect()
-                 clear_database(conn)
-                 Base.metadata.create_all(conn, checkfirst=False)
-                 conn.commit()
-                 conn.close()
+            @pytest.fixture(scope="session")
+            def connection():
+                # For SQLite, some additional hacks are required:
+                #
+                # from asphalt.sqlalchemy.utils import apply_sqlite_hacks
+                # engine = create_engine(
+                #     "sqlite:///:memory:",
+                #     connect_args={"check_same_thread": False}
+                # )
+                # apply_sqlite_hacks(engine)
+
+                engine = create_engine("postgresql+psycopg2://user:password@localhost/test")
+                with engine.connect() as conn:
+                    # Clear out previous tables (optional on sqlite, PostgreSQL,
+                    # possibly others too where transactional DDL is supported)
+                    clear_database(conn)
+                    Base.metadata.create_all(conn, checkfirst=False)
+                    yield conn
 
 
-             @pytest.fixture(scope="session", autouse=True)
-             def person(sqla_engine, setup_schema):
-                 # Add some base data to the database here (if necessary for your application)
-                 with Session(sqla_engine, expire_on_commit=False) as session:
-                     person = Person(name="Test person")
-                     session.add(person)
-                     session.commit()
-                     return person
+            @pytest.fixture
+            def root_component(connection):
+                return ApplicationComponent({"sqlalchemy": {"bind": connection}})
 
 
-             @pytest.fixture
-             def connection(sqla_engine):
-                 def restart(session, transaction):
-                     nonlocal nested
-                     if not nested.is_active:
-                         nested = conn.begin_nested()
-
-                 conn = sqla_engine.connect()
-                 tx = conn.begin()
-                 nested = conn.begin_nested()
-                 event.listen(Session, "after_transaction_end", restart)
-
-                 yield conn
-
-                 event.remove(Session, "after_transaction_end", restart)
-                 nested.rollback()
-                 tx.rollback()
-                 conn.close()
-
-
-             @pytest.fixture
-             def root_component(connection):
-                 return ApplicationComponent({"sqlalchemy": {"bind": connection}})
-
-
-             @pytest.fixture
-             def dbsession(connection):
-                 # A database session for use by testing code
-                 with Session(connection) as session:
-                     yield session
+            @pytest.fixture
+            def dbsession(connection):
+                # A database session for use by testing code
+                with Session(connection) as session:
+                    yield session
 
          .. code-tab:: python3 test_component.py
 
-             import pytest
-             from asphalt.core import Context
+            import pytest
+            from asphalt.core import Context
 
 
-             @pytest.mark.asyncio
-             async def test_func(root_component, dbsession):
-                 """This is an actual test function which uses the database connection."""
-                 async with Context() as ctx:
-                     await root_component.start(ctx)
-                     ...
+            @pytest.mark.asyncio
+            async def test_func(root_component, dbsession):
+                """This is an actual test function which uses the database connection."""
+                async with Context() as ctx:
+                    await root_component.start(ctx)
+                    ...
 
-Alternative testing plugins
----------------------------
+Adding base data
+----------------
+
+It's often useful to add base data to the database that is used by several tests or
+fixtures. This can be done on all scopes provided by pytest: ``session``, ``package``,
+``module``, ``class`` or ``function``. The basic idea is to create a **save point**, add
+your data, and then in the teardown stage, roll back to the save point. This technique
+allows multiple data fixtures from multiple scopes to coexist:
+
+.. tabs::
+
+   .. code-tab:: python3 Asynchronous
+
+       @pytest_asyncio.fixture(scope="session", autouse=True)
+       def session_base_data(connection):
+           tx = await connection.begin_nested()
+           async with AsyncSession(connection, expire_on_commit=False) as session:
+               person = Person(name="Test person")
+               session.add(person)
+               await session.commit()
+
+          yield person
+          await tx.rollback()
+
+
+       @pytest_asyncio.fixture(scope="module", autouse=True)
+       def module_base_data(connection):
+           tx = await connection.begin_nested()
+           async with AsyncSession(connection, expire_on_commit=False) as session:
+               person = Person(name="Another test person")
+               session.add(person)
+               await session.commit()
+
+          yield person
+          await tx.rollback()
+
+   .. code-tab:: python3 Synchronous
+
+       @pytest.fixture(scope="session", autouse=True)
+       def session_base_data(connection):
+           tx = connection.begin_nested()
+           with Session(connection, expire_on_commit=False) as session:
+               person = Person(name="Test person")
+               session.add(person)
+               session.commit()
+
+          yield person
+          tx.rollback()
+
+
+       @pytest.fixture(scope="module", autouse=True)
+       def module_base_data(connection):
+           tx = connection.begin_nested()
+           with Session(connection, expire_on_commit=False) as session:
+               person = Person(name="Anothr test person")
+               session.add(person)
+               session.commit()
+
+          yield person
+          tx.rollback()
+
+Using alternative async testing plugins
+---------------------------------------
 
 This recipe was built with pytest-asyncio in mind, but if you're instead using AnyIO_ as
 the test plugin, you should make the following changes to the async recipe:
 
 * Drop the ``event_loop`` fixture
 * Use regular ``@pytest.fixture`` to decorate the asynchronous fixtures
-* Drop ``scope="session"`` from the asynchronous fixtures
-* Use a global variable to record whether database initialization has been done, and
-  skip the schema creation if it's been done already
 
 .. _AnyIO: https://anyio.readthedocs.io/en/stable/

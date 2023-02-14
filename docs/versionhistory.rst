@@ -7,6 +7,7 @@ This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
 - **BACKWARD INCOMPATIBLE** Upgraded minimum SQLAlchemy version to 2.0.0
 - Added the ``prefer_async`` option for choosing between async and sync versions
+- Updated the testing documentation with a better recipe and more options
 
 **4.0.0** (2022-05-22)
 
