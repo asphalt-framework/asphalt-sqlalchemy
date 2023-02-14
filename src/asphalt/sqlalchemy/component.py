@@ -56,6 +56,8 @@ class SQLAlchemyComponent(Component):
         (can also be a dictionary of :class:`~sqlalchemy.engine.url.URL` keyword
         arguments)
     :param bind: a connection or engine to use instead of creating a new engine
+    :param prefer_async: if ``True``, try to create an async engine rather than a
+        synchronous one, in cases like ``psycopg`` where the driver supports both
     :param engine_args: extra keyword arguments passed to
         :func:`sqlalchemy.future.engine.create_engine` or
         :func:`sqlalchemy.ext.asyncio.create_engine`
@@ -79,6 +81,7 @@ class SQLAlchemyComponent(Component):
         *,
         url: str | URL | dict[str, Any] | None = None,
         bind: Connection | Engine | AsyncConnection | AsyncEngine | None = None,
+        prefer_async: bool = True,
         engine_args: dict[str, Any] | None = None,
         session_args: dict[str, Any] | None = None,
         commit_executor_workers: int = 5,
@@ -116,14 +119,16 @@ class SQLAlchemyComponent(Component):
                 poolclass = resolve_reference(poolclass)
 
             pool_class = cast("type[Pool]", poolclass)
-            try:
-                self.engine = self.bind = create_async_engine(
-                    url, poolclass=pool_class, **engine_args
-                )
-            except InvalidRequestError:
-                self.engine = self.bind = create_engine(
-                    url, poolclass=pool_class, **engine_args
-                )
+            functions = [create_engine]
+            functions.insert(0 if prefer_async else 1, create_async_engine)
+            for factory_function in functions:
+                try:
+                    self.engine = self.bind = factory_function(
+                        url, poolclass=pool_class, **engine_args
+                    )
+                    break
+                except InvalidRequestError:
+                    pass
 
             if url.get_dialect().name == "sqlite":
                 apply_sqlite_hacks(self.engine)

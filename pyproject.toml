@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools >= 61",
+    "setuptools >= 64",
     "setuptools_scm >= 6.4"
 ]
 build-backend = "setuptools.build_meta"
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 requires-python = ">=3.7"
 dependencies = [
@@ -40,7 +41,7 @@ test = [
     "asyncmy; platform_python_implementation == 'CPython'",
     "asyncpg; platform_python_implementation == 'CPython'",
     "pymysql",
-    "psycopg2cffi",
+    "psycopg >= 3.1",
     "pytest",
     "pytest-asyncio",
     "pytest-lazy-fixture",
@@ -89,15 +90,14 @@ legacy_tox_ini = """
 [tox]
 envlist = py37, py38, py39, py310, pypy3
 skip_missing_interpreters = true
-isolated_build = true
+minversion = 4.0
 
 [testenv]
 extras = test
 commands = python -m pytest {posargs}
 setenv =
   MYSQL_URL = mysql+pymysql://root@localhost:33060/asphalttest
-  POSTGRESQL_URL = postgresql+psycopg2://postgres:secret@localhost:54320/asphalttest
-  SQLALCHEMY_WARN_20 = 1
+  POSTGRESQL_URL = postgresql+psycopg://postgres:secret@localhost:54320/asphalttest
 
 [testenv:docs]
 extras = doc

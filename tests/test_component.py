@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import gc
 from contextlib import ExitStack
+from pathlib import Path
 from threading import Thread, current_thread
 
 import pytest
 from asphalt.core import NoCurrentContext, current_context
 from asphalt.core.context import Context, get_resource
+from pytest import FixtureRequest
 from sqlalchemy.engine.url import URL
 from sqlalchemy.event import listen, remove
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -14,12 +18,13 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy.sql import text
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
+from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
 from .model import Person
 
 
 @pytest.mark.asyncio
-async def test_component_start_sync():
+async def test_component_start_sync() -> None:
     """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
     component = SQLAlchemyComponent(url=url)
@@ -32,7 +37,7 @@ async def test_component_start_sync():
 
 
 @pytest.mark.asyncio
-async def test_component_start_async():
+async def test_component_start_async() -> None:
     """Test that the component creates all the expected (asynchronous) resources."""
     url = URL.create("sqlite+aiosqlite", database=":memory:")
     component = SQLAlchemyComponent(url=url)
@@ -44,7 +49,9 @@ async def test_component_start_async():
         ctx.require_resource(AsyncSession)
 
 
-@pytest.mark.parametrize("asynchronous", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    "asynchronous", [pytest.param(False, id="sync"), pytest.param(True, id="async")]
+)
 @pytest.mark.asyncio
 async def test_ready_callback(asynchronous):
     def ready_callback(engine, factory):
@@ -70,7 +77,7 @@ async def test_ready_callback(asynchronous):
 
 
 @pytest.mark.asyncio
-async def test_bind_sync():
+async def test_bind_sync() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_engine("sqlite:///:memory:")
     connection = engine.connect()
@@ -100,9 +107,9 @@ async def test_bind_async():
 
 
 @pytest.mark.asyncio
-async def test_close_twice_sync(patch_psycopg2, psycopg2_url):
+async def test_close_twice_sync(psycopg_url):
     """Test that closing a session releases connection resources, but remains usable."""
-    component = SQLAlchemyComponent(url=psycopg2_url)
+    component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(Session)
@@ -118,9 +125,9 @@ async def test_close_twice_sync(patch_psycopg2, psycopg2_url):
 
 
 @pytest.mark.asyncio
-async def test_close_twice_async(asyncpg_url):
+async def test_close_twice_async(psycopg_url):
     """Test that closing a session releases connection resources, but remains usable."""
-    component = SQLAlchemyComponent(url=asyncpg_url)
+    component = SQLAlchemyComponent(url=psycopg_url)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(AsyncSession)
@@ -142,7 +149,7 @@ def test_no_url_or_bind():
 
 @pytest.mark.parametrize("raise_exception", [False, True])
 @pytest.mark.asyncio
-async def test_finish_commit(raise_exception, tmp_path):
+async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
     """
     Tests that the session is automatically committed if and only if the context was not
     exited with an exception.
@@ -183,7 +190,7 @@ async def test_memory_leak():
 
 
 @pytest.mark.asyncio
-async def test_session_event_sync(psycopg2_url):
+async def test_session_event_sync(psycopg_url):
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session
     listener_thread: Thread
@@ -194,22 +201,29 @@ async def test_session_event_sync(psycopg2_url):
         listener_session = session
         listener_thread = current_thread()
 
-    component = SQLAlchemyComponent(url=psycopg2_url)
-    async with Context() as ctx:
-        await component.start(ctx)
-        Person.metadata.create_all(ctx.require_resource(Engine))
-        session_factory = ctx.require_resource(sessionmaker)
-        listen(session_factory, "before_commit", listener)
+    component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
+    engine: Engine | None = None
+    try:
+        async with Context() as ctx:
+            await component.start(ctx)
+            engine = ctx.require_resource(Engine)
+            Person.metadata.create_all(engine)
+            session_factory = ctx.require_resource(sessionmaker)
+            listen(session_factory, "before_commit", listener)
 
-        dbsession = ctx.require_resource(Session)
-        dbsession.add(Person(name="Test person"))
+            dbsession = ctx.require_resource(Session)
+            dbsession.add(Person(name="Test person"))
 
-    assert listener_session is dbsession
-    assert listener_thread != current_thread()
+        assert listener_session is dbsession
+        assert listener_thread != current_thread()
+    finally:
+        if engine:
+            with engine.connect() as conn:
+                clear_database(conn)
 
 
 @pytest.mark.asyncio
-async def test_session_event_async(request, asyncpg_url, psycopg2_url):
+async def test_session_event_async(request: FixtureRequest, psycopg_url) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session
     listener_thread: Thread
@@ -227,24 +241,25 @@ async def test_session_event_async(request, asyncpg_url, psycopg2_url):
 
     listen(Session, "before_commit", listener)
     request.addfinalizer(lambda: remove(Session, "before_commit", listener))
-    component = SQLAlchemyComponent(url=asyncpg_url)
-    async with Context() as ctx:
-        await component.start(ctx)
-        dbsession = ctx.require_resource(AsyncSession)
-        await dbsession.run_sync(
-            lambda session: Person.metadata.create_all(session.bind)
-        )
-        dbsession.add(Person(name="Test person"))
+    component = SQLAlchemyComponent(url=psycopg_url)
+    engine: AsyncEngine | None = None
+    try:
+        async with Context() as ctx:
+            await component.start(ctx)
+            engine = ctx.require_resource(AsyncEngine)
+            dbsession = ctx.require_resource(AsyncSession)
+            await dbsession.run_sync(
+                lambda session: Person.metadata.create_all(session.bind)
+            )
+            dbsession.add(Person(name="Test person"))
 
-    assert listener_session is dbsession.sync_session
-    assert listener_thread is current_thread()
-
-    engine = create_engine(psycopg2_url)
-    with Session(engine) as sess:
-        sess.add(Person(name="Test person 2"))
-        sess.commit()
-
-    engine.dispose()
+        assert listener_session is dbsession.sync_session
+        assert listener_thread is current_thread()
+    finally:
+        if engine:
+            async with engine.connect() as conn:
+                await clear_async_database(conn)
+                await conn.commit()
 
     assert listener_session is dbsession.sync_session
     assert listener_thread is current_thread()

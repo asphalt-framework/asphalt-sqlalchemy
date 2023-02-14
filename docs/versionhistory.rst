@@ -1,7 +1,11 @@
 Version history
 ===============
 
-This library adheres to `Semantic Versioning <https://semver.org/>`_.
+This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
+
+**UNRELEASED**
+
+- Added the ``prefer_async`` option for choosing between async and sync versions
 
 **4.0.0** (2022-05-22)
 
