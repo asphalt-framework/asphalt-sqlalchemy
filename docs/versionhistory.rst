@@ -3,7 +3,7 @@ Version history
 
 This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
-**UNRELEASED**
+**5.0.0** (2023-02-22)
 
 - **BACKWARD INCOMPATIBLE** Upgraded minimum SQLAlchemy version to 2.0.0
 - **BACKWARD INCOMPATIBLE** When an async engine/bind is used, an ``async_sessionmaker``
