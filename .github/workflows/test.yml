@@ -29,7 +29,7 @@ jobs:
       run: coverage run -m pytest
       env:
         MYSQL_URL: mysql+pymysql://root@localhost:33060/asphalttest
-        POSTGRESQL_URL: postgresql+psycopg2://postgres:secret@localhost:54320/asphalttest
+        POSTGRESQL_URL: postgresql+psycopg://postgres:secret@localhost:54320/asphalttest
     - name: Upload Coverage
       run: coveralls --service=github
       env:
