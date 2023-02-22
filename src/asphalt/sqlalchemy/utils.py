@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Iterable
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlalchemy.future import Connection, Engine
+from sqlalchemy.pool import ConnectionPoolEntry
 from sqlalchemy.sql.schema import MetaData
 
 
@@ -68,12 +70,14 @@ def apply_sqlite_hacks(engine: Engine | AsyncEngine) -> None:
 
     """
 
-    def do_connect(dbapi_connection, connection_record):
+    def do_connect(
+        dbapi_connection: sqlite3.Connection, connection_record: ConnectionPoolEntry
+    ) -> None:
         # disable pysqlite's emitting of the BEGIN statement entirely.
         # also stops it from emitting COMMIT before any DDL.
         dbapi_connection.isolation_level = None
 
-    def do_begin(conn):
+    def do_begin(conn: Connection) -> None:
         # emit our own BEGIN
         conn.exec_driver_sql("BEGIN")
 

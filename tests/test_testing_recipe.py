@@ -10,12 +10,11 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from asphalt.core import ContainerComponent, Context
-from sqlalchemy import Connection, Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
-from sqlalchemy.future import select
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.expression import delete, func
+from sqlalchemy.sql.expression import delete, func, select
 
 from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
@@ -150,7 +149,7 @@ class TestAsyncRecipe:
 
     @pytest.mark.asyncio
     async def test_rollback(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate a rollback happening in a subcontext
         async with Context() as root_ctx:
@@ -173,7 +172,7 @@ class TestAsyncRecipe:
 
     @pytest.mark.asyncio
     async def test_add_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate adding a row to the "people" table in the application
         async with Context() as root_ctx:
@@ -187,7 +186,7 @@ class TestAsyncRecipe:
 
     @pytest.mark.asyncio
     async def test_delete_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate removing the test person in the application
         async with Context() as root_ctx:

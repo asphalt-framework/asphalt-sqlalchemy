@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+from collections.abc import Generator
+from typing import Any
+
 import pytest
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.sql.ddl import CreateSchema, DropSchema
 from sqlalchemy.sql.schema import Column, ForeignKey, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer
@@ -7,7 +13,7 @@ from asphalt.sqlalchemy.utils import clear_database
 
 
 @pytest.fixture
-def connection(sync_engine):
+def connection(sync_engine: Engine) -> Generator[Connection, Any, None]:
     with sync_engine.connect() as conn:
         metadata = MetaData()
         Table("table", metadata, Column("column1", Integer, primary_key=True))
@@ -25,7 +31,7 @@ def connection(sync_engine):
             conn.execute(DropSchema("altschema"))
 
 
-def test_clear_database(connection):
+def test_clear_database(connection: Connection) -> None:
     clear_database(
         connection, ["altschema"] if connection.dialect.name != "sqlite" else []
     )

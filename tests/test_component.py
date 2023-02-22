@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.orm.session import Session, sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, QueuePool
 from sqlalchemy.sql import text
 
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
@@ -58,18 +58,22 @@ async def test_component_start_async() -> None:
     "asynchronous", [pytest.param(False, id="sync"), pytest.param(True, id="async")]
 )
 @pytest.mark.asyncio
-async def test_ready_callback(asynchronous):
-    def ready_callback(engine, factory):
+async def test_ready_callback(asynchronous: bool) -> None:
+    engine2: Engine | AsyncEngine | None = None
+    factory2: sessionmaker | async_sessionmaker | None = None
+
+    def ready_callback(engine: Engine, factory: sessionmaker) -> None:
         nonlocal engine2, factory2
         engine2 = engine
         factory2 = factory
 
-    async def ready_callback_async(engine, factory):
+    async def ready_callback_async(
+        engine: AsyncEngine, factory: async_sessionmaker
+    ) -> None:
         nonlocal engine2, factory2
         engine2 = engine
         factory2 = factory
 
-    engine2 = factory2 = None
     callback = ready_callback_async if asynchronous else ready_callback
     component = SQLAlchemyComponent(url="sqlite:///:memory:", ready_callback=callback)
     async with Context() as ctx:
@@ -97,7 +101,7 @@ async def test_bind_sync() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bind_async():
+async def test_bind_async() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     connection = await engine.connect()
@@ -112,13 +116,15 @@ async def test_bind_async():
 
 
 @pytest.mark.asyncio
-async def test_close_twice_sync(psycopg_url):
+async def test_close_twice_sync(psycopg_url: str) -> None:
     """Test that closing a session releases connection resources, but remains usable."""
     component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(Session)
+        assert isinstance(session.bind, Engine)
         pool = session.bind.pool
+        assert isinstance(pool, QueuePool)
         session.execute(text("SELECT 1"))
         assert pool.checkedout() == 1
         session.close()
@@ -130,13 +136,15 @@ async def test_close_twice_sync(psycopg_url):
 
 
 @pytest.mark.asyncio
-async def test_close_twice_async(psycopg_url):
+async def test_close_twice_async(psycopg_url: str) -> None:
     """Test that closing a session releases connection resources, but remains usable."""
     component = SQLAlchemyComponent(url=psycopg_url)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(AsyncSession)
+        assert isinstance(session.bind, AsyncEngine)
         pool = session.bind.pool
+        assert isinstance(pool, AsyncAdaptedQueuePool)
         await session.execute(text("SELECT 1"))
         assert pool.checkedout() == 1
         await session.close()
@@ -147,7 +155,7 @@ async def test_close_twice_async(psycopg_url):
     assert pool.checkedout() == 0
 
 
-def test_no_url_or_bind():
+def test_no_url_or_bind() -> None:
     exc = pytest.raises(TypeError, SQLAlchemyComponent)
     exc.match('both "url" and "bind" cannot be None')
 
@@ -182,7 +190,7 @@ async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_memory_leak():
+async def test_memory_leak() -> None:
     """Test that creating a session in a context does not leak memory."""
     component = SQLAlchemyComponent(url="sqlite:///:memory:")
     async with Context() as ctx:
@@ -195,7 +203,7 @@ async def test_memory_leak():
 
 
 @pytest.mark.asyncio
-async def test_session_event_sync(psycopg_url):
+async def test_session_event_sync(psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session
     listener_thread: Thread
@@ -228,7 +236,7 @@ async def test_session_event_sync(psycopg_url):
 
 
 @pytest.mark.asyncio
-async def test_session_event_async(request: FixtureRequest, psycopg_url) -> None:
+async def test_session_event_async(request: FixtureRequest, psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session
     listener_thread: Thread
