@@ -1,12 +1,13 @@
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.schema import Column
-from sqlalchemy.types import Integer, Unicode
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import Unicode
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Person(Base):
     __tablename__ = "people"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode(100), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Unicode(100))

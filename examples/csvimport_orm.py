@@ -16,22 +16,23 @@ from asphalt.core import (
     resource,
     run_application,
 )
-from sqlalchemy.orm import Session, declarative_base
-from sqlalchemy.sql.schema import Column
-from sqlalchemy.sql.sqltypes import Integer, Unicode
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 logger = logging.getLogger(__name__)
-Base = declarative_base()
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Person(Base):
     __tablename__ = "people"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode, nullable=False)
-    city = Column(Unicode, nullable=False)
-    phone = Column(Unicode, nullable=False)
-    email = Column(Unicode, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    city: Mapped[str]
+    phone: Mapped[str]
+    email: Mapped[str]
 
 
 class CSVImporterComponent(CLIApplicationComponent):
@@ -48,7 +49,9 @@ class CSVImporterComponent(CLIApplicationComponent):
         self.add_component(
             "sqlalchemy",
             url=f"sqlite:///{db_path}",
-            ready_callback=lambda bind, factory: Base.metadata.create_all(bind),
+            ready_callback=lambda bind, factory: DeclarativeBase.metadata.create_all(
+                bind
+            ),
         )
         await super().start(ctx)
 

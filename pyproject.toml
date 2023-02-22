@@ -75,7 +75,6 @@ testpaths = ["tests"]
 
 [tool.mypy]
 python_version = "3.7"
-plugins = ["sqlalchemy.ext.mypy.plugin"]
 
 [tool.coverage.run]
 source = ["asphalt.sqlalchemy"]
