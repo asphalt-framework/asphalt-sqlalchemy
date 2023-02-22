@@ -9,15 +9,16 @@ from inspect import isawaitable
 from typing import Any, cast
 
 from asphalt.core import Component, Context, context_teardown, resolve_reference
+from sqlalchemy.engine import Connection, Engine, create_engine
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
     AsyncSession,
+    async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.future.engine import Connection, Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import Pool
 
@@ -43,7 +44,7 @@ class SQLAlchemyComponent(Component):
     For asynchronous engines, the following resources are provided:
 
     * :class:`~sqlalchemy.ext.asyncio.AsyncEngine`
-    * :class:`~sqlalchemy.orm.session.sessionmaker`
+    * :class:`~sqlalchemy.ext.asyncio.async_sessionmaker`
     * :class:`~sqlalchemy.ext.asyncio.AsyncSession`
 
     .. note:: The following options will always be set to fixed values in sessions:
@@ -75,6 +76,10 @@ class SQLAlchemyComponent(Component):
     """
 
     commit_executor: ThreadPoolExecutor
+    _bind: Connection | Engine
+    _sessionmaker: sessionmaker
+    _async_bind: AsyncConnection | AsyncEngine
+    _async_sessionmaker: async_sessionmaker
 
     def __init__(
         self,
@@ -95,10 +100,13 @@ class SQLAlchemyComponent(Component):
         engine_args = engine_args or {}
         session_args = session_args or {}
         session_args["expire_on_commit"] = False
-        session_args["future"] = True
 
         if bind:
-            self.bind = bind
+            if isinstance(bind, Connection):
+                self._bind = bind
+            elif isinstance(bind, AsyncConnection):
+                self._async_bind = bind
+
             self.engine = cast("Engine | AsyncEngine", bind.engine)
         else:
             if isinstance(url, dict):
@@ -119,24 +127,34 @@ class SQLAlchemyComponent(Component):
                 poolclass = resolve_reference(poolclass)
 
             pool_class = cast("type[Pool]", poolclass)
-            functions = [create_engine]
-            functions.insert(0 if prefer_async else 1, create_async_engine)
-            for factory_function in functions:
+            if prefer_async:
                 try:
-                    self.engine = self.bind = factory_function(
+                    self.engine = self._async_bind = create_async_engine(
                         url, poolclass=pool_class, **engine_args
                     )
-                    break
                 except InvalidRequestError:
-                    pass
+                    self.engine = self._bind = create_engine(
+                        url, poolclass=pool_class, **engine_args
+                    )
+            else:
+                try:
+                    self.engine = self._bind = create_engine(
+                        url, poolclass=pool_class, **engine_args
+                    )
+                except InvalidRequestError:
+                    self.engine = self._async_bind = create_async_engine(
+                        url, poolclass=pool_class, **engine_args
+                    )
 
             if url.get_dialect().name == "sqlite":
                 apply_sqlite_hacks(self.engine)
 
         if isinstance(self.engine, AsyncEngine):
-            session_args.setdefault("class_", AsyncSession)
-
-        self.sessionmaker = sessionmaker(bind=self.bind, **session_args)
+            self._async_sessionmaker = async_sessionmaker(
+                bind=self._async_bind, **session_args
+            )
+        else:
+            self._sessionmaker = sessionmaker(bind=self._bind, **session_args)
 
     def create_session(self, ctx: Context) -> Session:
         async def teardown_session(exception: BaseException | None) -> None:
@@ -154,7 +172,7 @@ class SQLAlchemyComponent(Component):
             finally:
                 session.close()
 
-        session = self.sessionmaker()
+        session = self._sessionmaker()
         ctx.add_teardown_callback(teardown_session, pass_exception=True)
         return session
 
@@ -169,29 +187,39 @@ class SQLAlchemyComponent(Component):
             finally:
                 await session.close()
 
-        session: AsyncSession = self.sessionmaker()
+        session: AsyncSession = self._async_sessionmaker()
         ctx.add_teardown_callback(teardown_session, pass_exception=True)
         return session
 
     @context_teardown
     async def start(self, ctx: Context) -> AsyncGenerator[None, Exception | None]:
-        if self.ready_callback:
-            retval = self.ready_callback(self.bind, self.sessionmaker)
-            if isawaitable(retval):
-                await retval
-
-        ctx.add_resource(self.engine, self.resource_name)
-        ctx.add_resource(self.sessionmaker, self.resource_name)
+        bind: Connection | Engine | AsyncConnection | AsyncEngine
         if isinstance(self.engine, AsyncEngine):
+            if self.ready_callback:
+                retval = self.ready_callback(self._async_bind, self._sessionmaker)
+                if isawaitable(retval):
+                    await retval
+
+            bind = self._async_bind
+            ctx.add_resource(self.engine, self.resource_name)
+            ctx.add_resource(self._async_sessionmaker, self.resource_name)
             ctx.add_resource_factory(
                 self.create_async_session,
                 [AsyncSession],
                 self.resource_name,
             )
         else:
+            if self.ready_callback:
+                retval = self.ready_callback(self._bind, self._sessionmaker)
+                if isawaitable(retval):
+                    await retval
+
             self.commit_executor = ThreadPoolExecutor(self.commit_executor_workers)
             ctx.add_teardown_callback(self.commit_executor.shutdown)
 
+            bind = self._bind
+            ctx.add_resource(self.engine, self.resource_name)
+            ctx.add_resource(self._sessionmaker, self.resource_name)
             ctx.add_resource_factory(
                 self.create_session,
                 [Session],
@@ -201,15 +229,15 @@ class SQLAlchemyComponent(Component):
         logger.info(
             "Configured SQLAlchemy resources (%s; dialect=%s, driver=%s)",
             self.resource_name,
-            self.bind.dialect.name,
-            self.bind.dialect.driver,
+            bind.dialect.name,
+            bind.dialect.driver,
         )
 
         yield
 
-        if isinstance(self.bind, Engine):
-            self.bind.dispose()
-        elif isinstance(self.bind, AsyncEngine):
-            await self.bind.dispose()
+        if isinstance(bind, Engine):
+            bind.dispose()
+        elif isinstance(bind, AsyncEngine):
+            await bind.dispose()
 
         logger.info("SQLAlchemy resources (%s) shut down", self.resource_name)

@@ -6,6 +6,8 @@ This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 **UNRELEASED**
 
 - **BACKWARD INCOMPATIBLE** Upgraded minimum SQLAlchemy version to 2.0.0
+- **BACKWARD INCOMPATIBLE** When an async engine/bind is used, an ``async_sessionmaker``
+  resource is published instead of ``sessionmaker``
 - Added the ``prefer_async`` option for choosing between async and sync versions
 - Updated the testing documentation with a better recipe and more options
 

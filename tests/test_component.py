@@ -11,7 +11,12 @@ from asphalt.core.context import Context, get_resource
 from pytest import FixtureRequest
 from sqlalchemy.engine.url import URL
 from sqlalchemy.event import listen, remove
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.future import Engine, create_engine
 from sqlalchemy.orm.session import Session, sessionmaker
 from sqlalchemy.pool import NullPool
@@ -45,7 +50,7 @@ async def test_component_start_async() -> None:
         await component.start(ctx)
 
         ctx.require_resource(AsyncEngine)
-        ctx.require_resource(sessionmaker)
+        ctx.require_resource(async_sessionmaker)
         ctx.require_resource(AsyncSession)
 
 
