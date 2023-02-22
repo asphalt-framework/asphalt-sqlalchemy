@@ -27,6 +27,7 @@ def event_loop() -> Generator[AbstractEventLoop, Any, None]:
 
 @pytest.fixture(scope="session")
 def psycopg_url() -> str:  # type: ignore[return]
+    pytest.importorskip("asyncmy", reason="asyncmy is not available")
     try:
         return os.environ["POSTGRESQL_URL"]
     except KeyError:

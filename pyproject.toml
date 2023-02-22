@@ -41,7 +41,7 @@ test = [
     "asyncmy; platform_python_implementation == 'CPython'",
     "asyncpg; platform_python_implementation == 'CPython'",
     "pymysql",
-    "psycopg >= 3.1",
+    "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest",
     "pytest-asyncio",
     "pytest-lazy-fixture",
