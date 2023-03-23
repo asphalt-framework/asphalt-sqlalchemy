@@ -47,11 +47,10 @@ test = [
     "pytest-lazy-fixture",
 ]
 doc = [
-    "Sphinx >= 1.5",
-    "sphinx_rtd_theme",
-    "sphinx-autodoc-typehints >= 1.2.0",
+    "Sphinx >= 6.0",
+    "sphinx_rtd_theme >= 1.2.0",
+    "sphinx-autodoc-typehints >= 1.22",
     "sphinx-tabs >= 3.3.1",
-    "sphinxcontrib-asyncio >= 0.2.0",
 ]
 
 [project.entry-points."asphalt.components"]
@@ -100,5 +99,5 @@ setenv =
 
 [testenv:docs]
 extras = doc
-commands = sphinx-build docs build/sphinx
+commands = sphinx-build -W docs build/sphinx
 """

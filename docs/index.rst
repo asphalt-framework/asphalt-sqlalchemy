@@ -13,5 +13,5 @@ Table of contents
    events
    testing
    tips_tricks
+   api
    versionhistory
-   py-modindex
