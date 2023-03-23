@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
+**UNRELEASED**
+
+- Fixed ``AttributeError`` when passing an ``Engine`` or ``AsyncEngine`` as ``bind``
+
 **5.0.0** (2023-02-22)
 
 - **BACKWARD INCOMPATIBLE** Upgraded minimum SQLAlchemy version to 2.0.0

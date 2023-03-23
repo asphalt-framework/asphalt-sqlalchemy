@@ -8,7 +8,13 @@ from contextvars import copy_context
 from inspect import isawaitable
 from typing import Any, cast
 
-from asphalt.core import Component, Context, context_teardown, resolve_reference
+from asphalt.core import (
+    Component,
+    Context,
+    context_teardown,
+    qualified_name,
+    resolve_reference,
+)
 from sqlalchemy.engine import Connection, Engine, create_engine
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.exc import InvalidRequestError
@@ -76,6 +82,7 @@ class SQLAlchemyComponent(Component):
     """
 
     commit_executor: ThreadPoolExecutor
+    engine: Engine | AsyncEngine
     _bind: Connection | Engine
     _sessionmaker: sessionmaker
     _async_bind: AsyncConnection | AsyncEngine
@@ -104,10 +111,16 @@ class SQLAlchemyComponent(Component):
         if bind:
             if isinstance(bind, Connection):
                 self._bind = bind
+                self.engine = bind.engine
             elif isinstance(bind, AsyncConnection):
                 self._async_bind = bind
-
-            self.engine = cast("Engine | AsyncEngine", bind.engine)
+                self.engine = bind.engine
+            elif isinstance(bind, Engine):
+                self.engine = self._bind = bind
+            elif isinstance(bind, AsyncEngine):
+                self.engine = self._async_bind = bind
+            else:
+                raise TypeError(f"Incompatible bind argument: {qualified_name(bind)}")
         else:
             if isinstance(url, dict):
                 url = URL.create(**url)

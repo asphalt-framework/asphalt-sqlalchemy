@@ -86,7 +86,7 @@ async def test_ready_callback(asynchronous: bool) -> None:
 
 
 @pytest.mark.asyncio
-async def test_bind_sync() -> None:
+async def test_bind_sync_connection() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_engine("sqlite:///:memory:")
     connection = engine.connect()
@@ -101,7 +101,7 @@ async def test_bind_sync() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bind_async() -> None:
+async def test_bind_async_connection() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     connection = await engine.connect()
@@ -113,6 +113,34 @@ async def test_bind_async() -> None:
         assert ctx.require_resource(AsyncSession).bind is connection
 
     await connection.close()
+
+
+@pytest.mark.asyncio
+async def test_bind_sync_engine() -> None:
+    """Test that a Connection can be passed as "bind" in place of "url"."""
+    engine = create_engine("sqlite:///:memory:")
+    component = SQLAlchemyComponent(bind=engine)
+    async with Context() as ctx:
+        await component.start(ctx)
+
+        assert ctx.require_resource(Engine) is engine
+        assert ctx.require_resource(Session).bind is engine
+
+    engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_bind_async_engine() -> None:
+    """Test that a Connection can be passed as "bind" in place of "url"."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    component = SQLAlchemyComponent(bind=engine)
+    async with Context() as ctx:
+        await component.start(ctx)
+
+        assert ctx.require_resource(AsyncEngine) is engine
+        assert ctx.require_resource(AsyncSession).bind is engine
+
+    await engine.dispose()
 
 
 @pytest.mark.asyncio
