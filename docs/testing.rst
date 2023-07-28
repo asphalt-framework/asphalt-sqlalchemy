@@ -6,10 +6,10 @@ database connections and return fake data, or you test against a real database e
 This document focuses on the latter approach and provides instructions for setting up
 your fixtures accordingly.
 
-The basic idea is to have a session level fixture which creates and engine and then
-makes a single connection, through which all the database interaction will happen during
+The basic idea is to have a session level fixture which creates an engine and then
+makes a single connection, through which all the database interactions will happen during
 the testing session. Unless you're running SQLite, PostgreSQL or another RDBMS that
-supports transactional DDL, the fixture should first remove any previously created'
+supports transactional DDL, the fixture should first remove any previously created
 tables. This ensures that even if the testing session was interrupted previously, the
 correct set of tables are always properly created. On back-ends where transactional DDL
 is supported, rolling back the session scoped connection's transaction will also roll
@@ -43,7 +43,7 @@ This assumes the following:
 * You are using `pytest`_ for testing
 * You have the necessary testing dependencies installed (``pytest``, ``pytest-asyncio``)
 * You have a package ``yourapp.models`` and a declarative base class (``Base``) in it
-* You have model class named ``Person`` in ``yourapp.models``
+* You have a model class named ``Person`` in ``yourapp.models``
 * You have a test database accessible (not required with SQLite)
 * You have a project subdirectory for tests (named ``tests`` here)
 

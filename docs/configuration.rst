@@ -68,5 +68,5 @@ of the ``sqlalchemy`` component::
         resource_name: db2
         url: sqlite+aiosqlite:///mydb.sqlite
 
-The will make the appropriate resources available using their respective namespaces
+This will make the appropriate resources available using their respective namespaces
 (``db1`` or ``db2`` instead of ``default``).
