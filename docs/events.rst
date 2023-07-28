@@ -28,7 +28,7 @@ Events with asynchronous engines/sessions
 -----------------------------------------
 
 SQLAlchemy doesn't support asynchronous events yet, and sessionmakers producing async
-session cannot currently used as a target for event listeners. As a workaround, you can
+sessions cannot currently be used as a target for event listeners. As a workaround, you can
 register an event listener on the :class:`~sqlalchemy.orm.Session` class and then check
 in the listener itself if the ``session`` argument matches the async session's
 ``sync_session`` attribute in the current context::
