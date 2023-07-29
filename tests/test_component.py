@@ -233,8 +233,8 @@ async def test_memory_leak() -> None:
 @pytest.mark.asyncio
 async def test_session_event_sync(psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
-    listener_session: Session
-    listener_thread: Thread
+    listener_session: Session | None = None
+    listener_thread: Thread | None = None
 
     def listener(session: Session) -> None:
         nonlocal listener_session, listener_thread
@@ -266,8 +266,8 @@ async def test_session_event_sync(psycopg_url: str) -> None:
 @pytest.mark.asyncio
 async def test_session_event_async(request: FixtureRequest, psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
-    listener_session: Session
-    listener_thread: Thread
+    listener_session: Session | None = None
+    listener_thread: Thread | None = None
 
     def listener(session: Session) -> None:
         nonlocal listener_session, listener_thread

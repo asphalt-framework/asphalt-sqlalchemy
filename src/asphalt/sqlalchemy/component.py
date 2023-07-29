@@ -15,6 +15,8 @@ from asphalt.core import (
     qualified_name,
     resolve_reference,
 )
+
+from asphalt.sqlalchemy.utils import apply_sqlite_hacks
 from sqlalchemy.engine import Connection, Engine, create_engine
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.exc import InvalidRequestError
@@ -27,8 +29,6 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import Pool
-
-from asphalt.sqlalchemy.utils import apply_sqlite_hacks
 
 logger = logging.getLogger(__name__)
 
