@@ -1,8 +1,14 @@
+from threading import Timer
+
+from collections.abc import Generator
+
+from contextlib import contextmanager
+
 import logging
 from concurrent.futures import Executor, ThreadPoolExecutor
 from functools import partial
 from inspect import isawaitable
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from asphalt.core import (
     Component,
@@ -25,6 +31,18 @@ if hasattr(URL, "create"):
     create_url = URL.create
 else:
     create_url = URL
+
+
+@contextmanager
+def warn_after_timeout(operation: str, timeout: float) -> Generator[None, None, None]:
+    timer = Timer(
+        timeout,
+        logger.warning,
+        ["%s is taking longer than %.0f seconds to run", operation, timeout],
+    )
+    timer.start()
+    yield
+    timer.cancel()
 
 
 class SQLAlchemyComponent(Component):
@@ -62,7 +80,7 @@ class SQLAlchemyComponent(Component):
         engines: Dict[str, Dict[str, Any]] = None,
         commit_executor: Union[Executor, str] = None,
         commit_executor_workers: int = 5,
-        **default_args
+        **default_args,
     ) -> None:
         assert check_argument_types()
         if not engines:
@@ -89,7 +107,7 @@ class SQLAlchemyComponent(Component):
         session: Dict[str, Any] = None,
         ready_callback: Union[Callable[[Engine, sessionmaker], Any], str] = None,
         poolclass: Union[str, Pool] = None,
-        **engine_args
+        **engine_args,
     ):
         """
         Create an engine and selectively apply certain hacks to make it Asphalt friendly.
@@ -137,9 +155,12 @@ class SQLAlchemyComponent(Component):
         def teardown_session(exception: Optional[BaseException]) -> None:
             try:
                 if exception is None and session.is_active:
-                    session.commit()
+                    with warn_after_timeout("session.commit()", 5):
+                        session.commit()
             finally:
-                session.close()
+                with warn_after_timeout("session.close()", 5):
+                    session.close()
+
                 del session.info["ctx"]
 
         session = factory(info={"ctx": ctx})
