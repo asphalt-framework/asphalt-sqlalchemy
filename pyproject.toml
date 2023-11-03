@@ -1,7 +1,6 @@
 [build-system]
 requires = [
     "setuptools >= 61",
-    "setuptools_scm[toml] >= 3.4"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -30,7 +29,7 @@ dependencies = [
     "SQLAlchemy >= 1.0.10",
     "typeguard ~= 2.0",
 ]
-dynamic = ["version"]
+version = "3.2.0.post2"
 
 [project.urls]
 Homepage = "https://github.com/asphalt-framework/asphalt-sqlalchemy"
