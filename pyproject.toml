@@ -44,7 +44,7 @@ test = [
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest",
-    "pytest-asyncio",
+    "pytest-asyncio >= 0.23.3",
     "pytest-lazy-fixture",
 ]
 doc = [
