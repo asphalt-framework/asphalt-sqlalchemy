@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from asyncio import AbstractEventLoop, new_event_loop, set_event_loop
 from collections.abc import AsyncGenerator, Generator
 from typing import Any, cast
 
@@ -9,6 +8,7 @@ import pytest
 import pytest_asyncio
 from _pytest.fixtures import SubRequest
 from pytest import TempPathFactory
+from pytest_asyncio import is_async_test
 from pytest_lazyfixture import lazy_fixture
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.future import Engine, create_engine
@@ -16,13 +16,11 @@ from sqlalchemy.future import Engine, create_engine
 from asphalt.sqlalchemy.utils import apply_sqlite_hacks
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[AbstractEventLoop, Any, None]:
-    # Required for session scoped async fixtures
-    loop = new_event_loop()
-    set_event_loop(loop)
-    yield loop
-    loop.close()
+def pytest_collection_modifyitems(items):
+    pytest_asyncio_tests = (item for item in items if is_async_test(item))
+    session_scope_marker = pytest.mark.asyncio(scope="session")
+    for async_test in pytest_asyncio_tests:
+        async_test.add_marker(session_scope_marker)
 
 
 @pytest.fixture(scope="session")
