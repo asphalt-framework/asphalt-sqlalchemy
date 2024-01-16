@@ -8,7 +8,6 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from asphalt.core import ContainerComponent, Context
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +18,8 @@ from sqlalchemy.sql.expression import delete, func, select
 from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
 from .model import Base, Person
+
+pytestmark = pytest.mark.anyio
 
 
 class TestSyncRecipe:
@@ -56,7 +57,6 @@ class TestSyncRecipe:
         with Session(connection) as session:
             yield session
 
-    @pytest.mark.asyncio
     async def test_rollback(
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
@@ -79,7 +79,6 @@ class TestSyncRecipe:
         # The context is gone, but the extra Person should still be around
         assert dbsession.scalar(func.count(Person.id)) == 2
 
-    @pytest.mark.asyncio
     async def test_add_person(
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
@@ -93,7 +92,6 @@ class TestSyncRecipe:
         # The testing code should see both rows now
         assert dbsession.scalar(func.count(Person.id)) == 2
 
-    @pytest.mark.asyncio
     async def test_delete_person(
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
@@ -109,7 +107,7 @@ class TestSyncRecipe:
 
 
 class TestAsyncRecipe:
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def connection(
         self, async_engine: AsyncEngine
     ) -> AsyncGenerator[AsyncConnection, Any]:
@@ -120,13 +118,13 @@ class TestAsyncRecipe:
             await conn.run_sync(Base.metadata.create_all, checkfirst=False)
             yield conn
 
-    @pytest_asyncio.fixture(autouse=True)
+    @pytest.fixture(autouse=True)
     async def nested_tx(self, connection: AsyncConnection) -> AsyncGenerator[None, Any]:
         nested = await connection.begin_nested()
         yield
         await nested.rollback()
 
-    @pytest_asyncio.fixture(autouse=True)
+    @pytest.fixture(autouse=True)
     async def person(self, connection: AsyncConnection) -> Person:
         # Add some base data to the database here (if necessary for your application)
         async with AsyncSession(connection, expire_on_commit=False) as session:
@@ -139,7 +137,7 @@ class TestAsyncRecipe:
     def root_component(self, connection: AsyncConnection) -> ContainerComponent:
         return ContainerComponent({"sqlalchemy": {"bind": connection}})
 
-    @pytest_asyncio.fixture
+    @pytest.fixture
     async def dbsession(
         self, connection: AsyncConnection
     ) -> AsyncGenerator[AsyncSession, Any]:
@@ -147,7 +145,6 @@ class TestAsyncRecipe:
         async with AsyncSession(connection) as session:
             yield session
 
-    @pytest.mark.asyncio
     async def test_rollback(
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
@@ -170,7 +167,6 @@ class TestAsyncRecipe:
         # The context is gone, but the extra Person should still be around
         assert await dbsession.scalar(func.count(Person.id)) == 2
 
-    @pytest.mark.asyncio
     async def test_add_person(
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
@@ -184,7 +180,6 @@ class TestAsyncRecipe:
         # The testing code should see both rows now
         assert await dbsession.scalar(select(func.count(Person.id))) == 2
 
-    @pytest.mark.asyncio
     async def test_delete_person(
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:

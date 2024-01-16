@@ -38,12 +38,12 @@ Homepage = "https://github.com/asphalt-framework/asphalt-sqlalchemy"
 [project.optional-dependencies]
 test = [
     "aiosqlite",
+    "anyio >= 4.2",
     "asyncmy; platform_python_implementation == 'CPython'",
     "asyncpg; platform_python_implementation == 'CPython'",
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest",
-    "pytest-asyncio >= 0.23.3",
     "pytest-lazy-fixture",
 ]
 doc = [
@@ -77,7 +77,6 @@ known-first-party = ["asphalt.sqlalchemy"]
 
 [tool.pytest.ini_options]
 addopts = "-rsx --tb=short"
-asyncio_mode = "strict"
 testpaths = ["tests"]
 
 [tool.mypy]

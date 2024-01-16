@@ -5,10 +5,8 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any, cast
 
 import pytest
-import pytest_asyncio
 from _pytest.fixtures import SubRequest
 from pytest import TempPathFactory
-from pytest_asyncio import is_async_test
 from pytest_lazyfixture import lazy_fixture
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.future import Engine, create_engine
@@ -16,11 +14,9 @@ from sqlalchemy.future import Engine, create_engine
 from asphalt.sqlalchemy.utils import apply_sqlite_hacks
 
 
-def pytest_collection_modifyitems(items):
-    pytest_asyncio_tests = (item for item in items if is_async_test(item))
-    session_scope_marker = pytest.mark.asyncio(scope="session")
-    for async_test in pytest_asyncio_tests:
-        async_test.add_marker(session_scope_marker)
+@pytest.fixture(scope="session")
+def anyio_backend() -> str:
+    return "asyncio"
 
 
 @pytest.fixture(scope="session")
@@ -85,7 +81,7 @@ def sqlite_file_engine(
         db_path.unlink()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def aiosqlite_memory_engine() -> AsyncGenerator[AsyncEngine, Any]:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     apply_sqlite_hacks(engine)
@@ -93,7 +89,7 @@ async def aiosqlite_memory_engine() -> AsyncGenerator[AsyncEngine, Any]:
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def aiosqlite_file_engine(
     tmp_path_factory: TempPathFactory,
 ) -> AsyncGenerator[AsyncEngine, Any]:
@@ -106,14 +102,14 @@ async def aiosqlite_file_engine(
         db_path.unlink()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def psycopg_async_engine(psycopg_url: str) -> AsyncGenerator[AsyncEngine, Any]:
     engine = create_async_engine(psycopg_url)
     yield engine
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def asyncmy_engine(asyncmy_url: str) -> AsyncGenerator[AsyncEngine, Any]:
     engine = create_async_engine(asyncmy_url)
     yield engine
@@ -133,7 +129,7 @@ def sync_engine(request: SubRequest) -> Engine:
     return cast(Engine, request.param)
 
 
-@pytest_asyncio.fixture(
+@pytest.fixture(
     params=[
         lazy_fixture("aiosqlite_memory_engine"),
         lazy_fixture("aiosqlite_file_engine"),

@@ -27,8 +27,9 @@ from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
 from .model import Person
 
+pytestmark = pytest.mark.anyio
 
-@pytest.mark.asyncio
+
 async def test_component_start_sync() -> None:
     """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
@@ -41,7 +42,6 @@ async def test_component_start_sync() -> None:
         ctx.require_resource(Session)
 
 
-@pytest.mark.asyncio
 async def test_component_start_async() -> None:
     """Test that the component creates all the expected (asynchronous) resources."""
     url = URL.create("sqlite+aiosqlite", database=":memory:")
@@ -57,7 +57,6 @@ async def test_component_start_async() -> None:
 @pytest.mark.parametrize(
     "asynchronous", [pytest.param(False, id="sync"), pytest.param(True, id="async")]
 )
-@pytest.mark.asyncio
 async def test_ready_callback(asynchronous: bool) -> None:
     engine2: Engine | AsyncEngine | None = None
     factory2: sessionmaker | async_sessionmaker | None = None
@@ -85,7 +84,6 @@ async def test_ready_callback(asynchronous: bool) -> None:
         assert factory is factory2
 
 
-@pytest.mark.asyncio
 async def test_bind_sync_connection() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_engine("sqlite:///:memory:")
@@ -100,7 +98,6 @@ async def test_bind_sync_connection() -> None:
     connection.close()
 
 
-@pytest.mark.asyncio
 async def test_bind_async_connection() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -115,7 +112,6 @@ async def test_bind_async_connection() -> None:
     await connection.close()
 
 
-@pytest.mark.asyncio
 async def test_bind_sync_engine() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_engine("sqlite:///:memory:")
@@ -129,7 +125,6 @@ async def test_bind_sync_engine() -> None:
     engine.dispose()
 
 
-@pytest.mark.asyncio
 async def test_bind_async_engine() -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -143,7 +138,6 @@ async def test_bind_async_engine() -> None:
     await engine.dispose()
 
 
-@pytest.mark.asyncio
 async def test_close_twice_sync(psycopg_url: str) -> None:
     """Test that closing a session releases connection resources, but remains usable."""
     component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
@@ -163,7 +157,6 @@ async def test_close_twice_sync(psycopg_url: str) -> None:
     assert pool.checkedout() == 0
 
 
-@pytest.mark.asyncio
 async def test_close_twice_async(psycopg_url: str) -> None:
     """Test that closing a session releases connection resources, but remains usable."""
     component = SQLAlchemyComponent(url=psycopg_url)
@@ -189,7 +182,6 @@ def test_no_url_or_bind() -> None:
 
 
 @pytest.mark.parametrize("raise_exception", [False, True])
-@pytest.mark.asyncio
 async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
     """
     Tests that the session is automatically committed if and only if the context was not
@@ -217,7 +209,6 @@ async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
         assert len(rows) == (0 if raise_exception else 1)
 
 
-@pytest.mark.asyncio
 async def test_memory_leak() -> None:
     """Test that creating a session in a context does not leak memory."""
     component = SQLAlchemyComponent(url="sqlite:///:memory:")
@@ -230,7 +221,6 @@ async def test_memory_leak() -> None:
     assert next((x for x in gc.get_objects() if isinstance(x, Context)), None) is None
 
 
-@pytest.mark.asyncio
 async def test_session_event_sync(psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session | None = None
@@ -263,7 +253,6 @@ async def test_session_event_sync(psycopg_url: str) -> None:
                 clear_database(conn)
 
 
-@pytest.mark.asyncio
 async def test_session_event_async(request: FixtureRequest, psycopg_url: str) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session | None = None
