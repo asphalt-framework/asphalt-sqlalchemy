@@ -6,6 +6,9 @@ This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 **UNRELEASED**
 
 - Dropped support for Python 3.7
+- Changed component startup to always provide a ``sessionmaker`` resource, even with
+  async engines. This session maker is configured as the ``sync_session_class`` for the
+  async sessionmaker, and can be used to add session event listeners.
 
 **5.0.1** (2023-04-03)
 

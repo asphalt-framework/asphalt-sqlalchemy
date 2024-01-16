@@ -28,10 +28,10 @@ Events with asynchronous engines/sessions
 -----------------------------------------
 
 SQLAlchemy doesn't support asynchronous events yet, and sessionmakers producing async
-sessions cannot currently be used as a target for event listeners. As a workaround, you can
-register an event listener on the :class:`~sqlalchemy.orm.Session` class and then check
-in the listener itself if the ``session`` argument matches the async session's
-``sync_session`` attribute in the current context::
+sessions cannot currently be used as a target for event listeners. To work around this,
+a synchronous ``sessionmaker`` resource is provided by this component even for async
+engines. To add listeners, simply use this session maker as the target for the
+listeners::
 
     from asphalt.core import NoCurrentContext, get_resource, inject, resource
     from sqlalchemy.ext.asyncio import AsyncSession

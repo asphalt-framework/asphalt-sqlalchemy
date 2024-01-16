@@ -50,6 +50,7 @@ class SQLAlchemyComponent(Component):
     For asynchronous engines, the following resources are provided:
 
     * :class:`~sqlalchemy.ext.asyncio.AsyncEngine`
+    * :class:`~sqlalchemy.orm.session.sessionmaker`
     * :class:`~sqlalchemy.ext.asyncio.async_sessionmaker`
     * :class:`~sqlalchemy.ext.asyncio.AsyncSession`
 
@@ -163,8 +164,12 @@ class SQLAlchemyComponent(Component):
                 apply_sqlite_hacks(self.engine)
 
         if isinstance(self.engine, AsyncEngine):
+            # This is needed for listening to ORM events when async sessions are used
+            self._sessionmaker = sessionmaker()
             self._async_sessionmaker = async_sessionmaker(
-                bind=self._async_bind, **session_args
+                bind=self._async_bind,
+                sync_session_class=self._sessionmaker,
+                **session_args,
             )
         else:
             self._sessionmaker = sessionmaker(bind=self._bind, **session_args)
@@ -215,6 +220,7 @@ class SQLAlchemyComponent(Component):
 
             bind = self._async_bind
             ctx.add_resource(self.engine, self.resource_name)
+            ctx.add_resource(self._sessionmaker, self.resource_name)
             ctx.add_resource(self._async_sessionmaker, self.resource_name)
             ctx.add_resource_factory(
                 self.create_async_session,

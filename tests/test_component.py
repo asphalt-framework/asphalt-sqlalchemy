@@ -4,6 +4,7 @@ import gc
 from contextlib import ExitStack
 from pathlib import Path
 from threading import Thread, current_thread
+from typing import Any
 
 import pytest
 from asphalt.core import NoCurrentContext, current_context
@@ -30,28 +31,48 @@ from .model import Person
 pytestmark = pytest.mark.anyio
 
 
-async def test_component_start_sync() -> None:
+@pytest.mark.parametrize(
+    "component_opts, args",
+    [
+        pytest.param({}, ()),
+        pytest.param({"resource_name": "alternate"}, ("alternate",)),
+    ],
+)
+async def test_component_start_sync(
+    component_opts: dict[str, Any], args: tuple[Any]
+) -> None:
     """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
-    component = SQLAlchemyComponent(url=url)
+    component = SQLAlchemyComponent(url=url, **component_opts)
     async with Context() as ctx:
         await component.start(ctx)
 
-        ctx.require_resource(Engine)
-        ctx.require_resource(sessionmaker)
-        ctx.require_resource(Session)
+        ctx.require_resource(Engine, *args)
+        ctx.require_resource(sessionmaker, *args)
+        ctx.require_resource(Session, *args)
 
 
-async def test_component_start_async() -> None:
+@pytest.mark.parametrize(
+    "component_opts, args",
+    [
+        pytest.param({}, ()),
+        pytest.param({"resource_name": "alternate"}, ("alternate",)),
+    ],
+)
+async def test_component_start_async(
+    component_opts: dict[str, Any], args: tuple[Any]
+) -> None:
     """Test that the component creates all the expected (asynchronous) resources."""
     url = URL.create("sqlite+aiosqlite", database=":memory:")
-    component = SQLAlchemyComponent(url=url)
+    component = SQLAlchemyComponent(url=url, **component_opts)
     async with Context() as ctx:
         await component.start(ctx)
 
-        ctx.require_resource(AsyncEngine)
-        ctx.require_resource(async_sessionmaker)
-        ctx.require_resource(AsyncSession)
+        ctx.require_resource(AsyncEngine, *args)
+        async_session_class = ctx.require_resource(async_sessionmaker, *args)
+        ctx.require_resource(AsyncSession, *args)
+        sync_session_class = ctx.require_resource(sessionmaker, *args)
+        assert async_session_class.kw["sync_session_class"] is sync_session_class
 
 
 @pytest.mark.parametrize(
