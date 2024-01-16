@@ -3,6 +3,10 @@ Version history
 
 This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
+**UNRELEASED**
+
+- Dropped support for Python 3.7
+
 **5.0.1** (2023-04-03)
 
 - Fixed ``AttributeError`` when passing an ``Engine`` or ``AsyncEngine`` as ``bind``
