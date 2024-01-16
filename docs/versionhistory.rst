@@ -3,7 +3,7 @@ Version history
 
 This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
-**UNRELEASED**
+**5.1.0** (2024-01-16)
 
 - Dropped support for Python 3.7
 - Changed component startup to always provide a ``sessionmaker`` resource, even with
