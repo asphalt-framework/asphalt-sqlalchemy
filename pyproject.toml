@@ -41,9 +41,10 @@ test = [
     "anyio >= 4.2",
     "asyncmy; platform_python_implementation == 'CPython'",
     "asyncpg; platform_python_implementation == 'CPython'",
+    "coverage >= 7",
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
-    "pytest",
+    "pytest >= 7.4",
     "pytest-lazy-fixture",
 ]
 doc = [

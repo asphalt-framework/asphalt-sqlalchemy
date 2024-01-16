@@ -24,28 +24,23 @@ jobs:
     - name: Start external services
       run: docker-compose up -d
     - name: Install dependencies
-      run: pip install .[test] coveralls
+      run: pip install .[test]
     - name: Test with pytest
-      run: coverage run -m pytest
-      env:
-        MYSQL_URL: mysql+pymysql://root@localhost:33060/asphalttest
-        POSTGRESQL_URL: postgresql+psycopg://postgres:secret@localhost:54320/asphalttest
+      run: coverage run -m pytest -v
+    - name: Generate coverage report
+      run: coverage xml
     - name: Upload Coverage
-      run: coveralls --service=github
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        COVERALLS_FLAG_NAME: ${{ matrix.test-name }}
-        COVERALLS_PARALLEL: true
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel: true
+        file: coverage.xml
 
   coveralls:
     name: Finish Coveralls
     needs: test
     runs-on: ubuntu-latest
-    container: python:3-slim
     steps:
     - name: Finished
-      run: |
-        pip install coveralls
-        coveralls --service=github --finish
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true
