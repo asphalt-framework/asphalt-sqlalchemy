@@ -21,7 +21,7 @@ def anyio_backend() -> str:
 
 @pytest.fixture(scope="session")
 def psycopg_url() -> str:  # type: ignore[return]
-    pytest.importorskip("asyncmy", reason="asyncmy is not available")
+    pytest.importorskip("psycopg", reason="psycopg is not available")
     try:
         return os.environ["POSTGRESQL_URL"]
     except KeyError:
