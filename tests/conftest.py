@@ -7,7 +7,7 @@ from typing import Any, cast
 import pytest
 from _pytest.fixtures import SubRequest
 from pytest import TempPathFactory
-from pytest_lazyfixture import lazy_fixture
+from pytest_lazy_fixtures import lf
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.future import Engine, create_engine
 
@@ -118,10 +118,10 @@ async def asyncmy_engine(asyncmy_url: str) -> AsyncGenerator[AsyncEngine, Any]:
 
 @pytest.fixture(
     params=[
-        lazy_fixture("sqlite_memory_engine"),
-        lazy_fixture("sqlite_file_engine"),
-        lazy_fixture("pymysql_engine"),
-        lazy_fixture("psycopg_engine"),
+        lf("sqlite_memory_engine"),
+        lf("sqlite_file_engine"),
+        lf("pymysql_engine"),
+        lf("psycopg_engine"),
     ],
     scope="session",
 )
@@ -131,10 +131,10 @@ def sync_engine(request: SubRequest) -> Engine:
 
 @pytest.fixture(
     params=[
-        lazy_fixture("aiosqlite_memory_engine"),
-        lazy_fixture("aiosqlite_file_engine"),
-        lazy_fixture("psycopg_async_engine"),
-        lazy_fixture("asyncmy_engine"),
+        lf("aiosqlite_memory_engine"),
+        lf("aiosqlite_file_engine"),
+        lf("psycopg_async_engine"),
+        lf("asyncmy_engine"),
     ],
     scope="session",
 )

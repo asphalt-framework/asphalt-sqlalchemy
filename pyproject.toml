@@ -45,7 +45,7 @@ test = [
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest >= 7.4",
-    "pytest-lazy-fixture",
+    "pytest-lazy-fixtures",
 ]
 doc = [
     "Sphinx >= 7.0",
