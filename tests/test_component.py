@@ -117,9 +117,9 @@ async def test_bind_sync_connection() -> None:
     connection.close()
 
 
-async def test_bind_async_connection() -> None:
+async def test_bind_async_connection(aiosqlite_memory_url: str) -> None:
     """Test that a Connection can be passed as "bind" in place of "url"."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    engine = create_async_engine(aiosqlite_memory_url)
     connection = await engine.connect()
     component = SQLAlchemyComponent(bind=connection)
     async with Context() as ctx:
@@ -176,9 +176,9 @@ async def test_close_twice_sync(psycopg_url: str) -> None:
     assert pool.checkedout() == 0
 
 
-async def test_close_twice_async(psycopg_url: str) -> None:
+async def test_close_twice_async(psycopg_url_async: str) -> None:
     """Test that closing a session releases connection resources, but remains usable."""
-    component = SQLAlchemyComponent(url=psycopg_url)
+    component = SQLAlchemyComponent(url=psycopg_url_async)
     async with Context() as ctx:
         await component.start(ctx)
         session = ctx.require_resource(AsyncSession)
@@ -240,7 +240,7 @@ async def test_memory_leak() -> None:
     assert next((x for x in gc.get_objects() if isinstance(x, Context)), None) is None
 
 
-async def test_session_event_sync(psycopg_url: str) -> None:
+async def test_session_event_sync(psycopg_url_async: str) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session | None = None
     listener_thread: Thread | None = None
@@ -251,7 +251,7 @@ async def test_session_event_sync(psycopg_url: str) -> None:
         listener_session = session
         listener_thread = current_thread()
 
-    component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
+    component = SQLAlchemyComponent(url=psycopg_url_async, prefer_async=False)
     engine: Engine | None = None
     try:
         async with Context() as ctx:
@@ -272,7 +272,9 @@ async def test_session_event_sync(psycopg_url: str) -> None:
                 clear_database(conn)
 
 
-async def test_session_event_async(request: FixtureRequest, psycopg_url: str) -> None:
+async def test_session_event_async(
+    request: FixtureRequest, psycopg_url_async: str
+) -> None:
     """Test that creating a session in a context does not leak memory."""
     listener_session: Session | None = None
     listener_thread: Thread | None = None
@@ -290,7 +292,7 @@ async def test_session_event_async(request: FixtureRequest, psycopg_url: str) ->
 
     listen(Session, "before_commit", listener)
     request.addfinalizer(lambda: remove(Session, "before_commit", listener))
-    component = SQLAlchemyComponent(url=psycopg_url)
+    component = SQLAlchemyComponent(url=psycopg_url_async)
     engine: AsyncEngine | None = None
     try:
         async with Context() as ctx:

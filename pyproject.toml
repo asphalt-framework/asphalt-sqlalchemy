@@ -38,7 +38,7 @@ Homepage = "https://github.com/asphalt-framework/asphalt-sqlalchemy"
 [project.optional-dependencies]
 test = [
     "aiosqlite",
-    "anyio >= 4.2",
+    "anyio[trio] >= 4.2",
     "asyncmy; platform_python_implementation == 'CPython'",
     "coverage >= 7",
     "pymysql",

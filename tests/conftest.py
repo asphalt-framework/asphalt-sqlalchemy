@@ -14,12 +14,15 @@ from sqlalchemy.future import Engine, create_engine
 from asphalt.sqlalchemy import apply_sqlite_hacks
 
 
-@pytest.fixture(scope="session")
-def anyio_backend() -> str:
-    return "asyncio"
+@pytest.fixture
+def aiosqlite_memory_url(anyio_backend_name: str) -> str:
+    if anyio_backend_name != "asyncio":
+        pytest.skip("Async SQLAlchemy only works with asyncio for now")
+
+    return "sqlite+aiosqlite:///:memory:"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def psycopg_url() -> str:  # type: ignore[return]
     pytest.importorskip("psycopg", reason="psycopg is not available")
     try:
@@ -28,7 +31,15 @@ def psycopg_url() -> str:  # type: ignore[return]
         pytest.skip("POSTGRESQL_URL environment variable is not set")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
+def psycopg_url_async(psycopg_url: str, anyio_backend_name: str) -> str:
+    if anyio_backend_name != "asyncio":
+        pytest.skip("Async SQLAlchemy only works with asyncio for now")
+
+    return psycopg_url
+
+
+@pytest.fixture
 def mysql_url() -> str:  # type: ignore[return]
     try:
         return os.environ["MYSQL_URL"]
@@ -36,27 +47,27 @@ def mysql_url() -> str:  # type: ignore[return]
         pytest.skip("MYSQL_URL environment variable is not set")
 
 
-@pytest.fixture(scope="session")
-def asyncmy_url(mysql_url: str) -> str:
+@pytest.fixture
+def asyncmy_url(mysql_url: str, anyio_backend_name: str) -> str:
     pytest.importorskip("asyncmy", reason="asyncmy is not available")
     return mysql_url.replace("pymysql", "asyncmy")
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def pymysql_engine(mysql_url: str) -> Generator[Engine, Any, None]:
     engine = create_engine(mysql_url)
     yield engine
     engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def psycopg_engine(psycopg_url: str) -> Generator[Engine, Any, None]:
     engine = create_engine(psycopg_url, echo=True)
     yield engine
     engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sqlite_memory_engine() -> Generator[Engine, Any, None]:
     engine = create_engine(
         "sqlite:///:memory:", connect_args=dict(check_same_thread=False)
@@ -66,7 +77,7 @@ def sqlite_memory_engine() -> Generator[Engine, Any, None]:
     engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sqlite_file_engine(
     tmp_path_factory: TempPathFactory,
 ) -> Generator[Engine, Any, None]:
@@ -81,18 +92,23 @@ def sqlite_file_engine(
         db_path.unlink()
 
 
-@pytest.fixture(scope="session")
-async def aiosqlite_memory_engine() -> AsyncGenerator[AsyncEngine, Any]:
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+@pytest.fixture
+async def aiosqlite_memory_engine(
+    aiosqlite_memory_url: str
+) -> AsyncGenerator[AsyncEngine, Any]:
+    engine = create_async_engine(aiosqlite_memory_url)
     apply_sqlite_hacks(engine)
     yield engine
     await engine.dispose()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def aiosqlite_file_engine(
-    tmp_path_factory: TempPathFactory,
+    tmp_path_factory: TempPathFactory, anyio_backend_name: str
 ) -> AsyncGenerator[AsyncEngine, Any]:
+    if anyio_backend_name != "asyncio":
+        pytest.skip("Async SQLAlchemy only works with asyncio for now")
+
     db_path = tmp_path_factory.mktemp("asphalt-sqlalchemy") / "test.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
     apply_sqlite_hacks(engine)
@@ -102,15 +118,25 @@ async def aiosqlite_file_engine(
         db_path.unlink()
 
 
-@pytest.fixture(scope="session")
-async def psycopg_async_engine(psycopg_url: str) -> AsyncGenerator[AsyncEngine, Any]:
+@pytest.fixture
+async def psycopg_async_engine(
+    psycopg_url: str, anyio_backend_name: str
+) -> AsyncGenerator[AsyncEngine, Any]:
+    if anyio_backend_name != "asyncio":
+        pytest.skip("Async SQLAlchemy only works with asyncio for now")
+
     engine = create_async_engine(psycopg_url)
     yield engine
     await engine.dispose()
 
 
-@pytest.fixture(scope="session")
-async def asyncmy_engine(asyncmy_url: str) -> AsyncGenerator[AsyncEngine, Any]:
+@pytest.fixture
+async def asyncmy_engine(
+    asyncmy_url: str, anyio_backend_name: str
+) -> AsyncGenerator[AsyncEngine, Any]:
+    if anyio_backend_name != "asyncio":
+        pytest.skip("Async SQLAlchemy only works with asyncio for now")
+
     engine = create_async_engine(asyncmy_url)
     yield engine
     await engine.dispose()
@@ -123,7 +149,6 @@ async def asyncmy_engine(asyncmy_url: str) -> AsyncGenerator[AsyncEngine, Any]:
         lf("pymysql_engine"),
         lf("psycopg_engine"),
     ],
-    scope="session",
 )
 def sync_engine(request: SubRequest) -> Engine:
     return cast(Engine, request.param)
@@ -136,7 +161,6 @@ def sync_engine(request: SubRequest) -> Engine:
         lf("psycopg_async_engine"),
         lf("asyncmy_engine"),
     ],
-    scope="session",
 )
 async def async_engine(request: SubRequest) -> AsyncEngine:
     return cast(AsyncEngine, request.param)
