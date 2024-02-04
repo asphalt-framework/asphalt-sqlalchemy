@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "asphalt ~= 4.9",
+    "asphalt ~= 4.12",
     "SQLAlchemy[asyncio] >= 2.0",
 ]
 dynamic = ["version"]
@@ -45,7 +45,7 @@ test = [
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest >= 7.4",
-    "pytest-lazy-fixture",
+    "pytest-lazy-fixtures",
 ]
 doc = [
     "Sphinx >= 7.0",
@@ -55,7 +55,7 @@ doc = [
 ]
 
 [project.entry-points."asphalt.components"]
-sqlalchemy = "asphalt.sqlalchemy.component:SQLAlchemyComponent"
+sqlalchemy = "asphalt.sqlalchemy._component:SQLAlchemyComponent"
 
 [tool.setuptools_scm]
 version_scheme = "post-release"

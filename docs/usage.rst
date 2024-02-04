@@ -46,7 +46,7 @@ you can skip this section. For those having to use engines for which no async
 counterpart is available, read on.
 
 Synchronous database connections in an asynchronous application pose a problem because
-running operations against a database will block the event loop, and thus needs to be
+running operations against a database will block the event loop, and thus need to be
 wrapped in worker threads. Another thing to watch out for is lazy loading of
 relationships and deferred columns which triggers implicit queries when those attributes
 are accessed.

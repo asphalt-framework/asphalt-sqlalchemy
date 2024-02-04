@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import gc
-from contextlib import ExitStack
+from contextlib import AsyncExitStack
 from pathlib import Path
 from threading import Thread, current_thread
 from typing import Any
 
 import pytest
-from asphalt.core import NoCurrentContext, current_context
-from asphalt.core.context import Context, get_resource
+from asphalt.core import Context, NoCurrentContext, current_context, get_resource
 from pytest import FixtureRequest
 from sqlalchemy.engine.url import URL
 from sqlalchemy.event import listen, remove
@@ -23,8 +22,7 @@ from sqlalchemy.orm.session import Session, sessionmaker
 from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, QueuePool
 from sqlalchemy.sql import text
 
-from asphalt.sqlalchemy.component import SQLAlchemyComponent
-from asphalt.sqlalchemy.utils import clear_async_database, clear_database
+from asphalt.sqlalchemy import SQLAlchemyComponent, clear_async_database, clear_database
 
 from .model import Person
 
@@ -217,14 +215,14 @@ async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
         component = SQLAlchemyComponent(
             url={"drivername": "sqlite", "database": str(db_path)},
         )
-        with ExitStack() as stack:
-            async with Context() as ctx:
-                await component.start(ctx)
-                session = ctx.require_resource(Session)
-                session.execute(text("INSERT INTO foo (id) VALUES(3)"))
-                if raise_exception:
-                    stack.enter_context(pytest.raises(Exception, match="dummy"))
-                    raise Exception("dummy")
+        async with AsyncExitStack() as stack:
+            ctx = await stack.enter_async_context(Context())
+            await component.start(ctx)
+            session = ctx.require_resource(Session)
+            session.execute(text("INSERT INTO foo (id) VALUES(3)"))
+            if raise_exception:
+                stack.enter_context(pytest.raises(Exception, match="dummy"))
+                raise Exception("dummy")
 
         rows = connection.execute(text("SELECT * FROM foo")).fetchall()
         assert len(rows) == (0 if raise_exception else 1)

@@ -9,7 +9,7 @@ from sqlalchemy.sql.ddl import CreateSchema, DropSchema
 from sqlalchemy.sql.schema import Column, ForeignKey, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer
 
-from asphalt.sqlalchemy.utils import clear_database
+from asphalt.sqlalchemy._utils import clear_database
 
 
 @pytest.fixture

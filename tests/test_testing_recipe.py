@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import delete, func, select
 
-from asphalt.sqlalchemy.utils import clear_async_database, clear_database
+from asphalt.sqlalchemy import clear_async_database, clear_database
 
 from .model import Base, Person
 
@@ -62,8 +62,10 @@ class TestSyncRecipe:
     ) -> None:
         # Simulate a rollback happening in a subcontext
         async with Context() as root_ctx:
+            print("Root context is", hex(id(root_ctx)))
             await root_component.start(root_ctx)
             async with Context() as ctx:
+                print("Subcontext is", hex(id(ctx)))
                 session = ctx.require_resource(Session)
                 try:
                     # No value for a non-nullable column => IntegrityError!
@@ -76,8 +78,8 @@ class TestSyncRecipe:
                     session.add(Person(name="Works now!"))
                     session.flush()
 
-        # The context is gone, but the extra Person should still be around
-        assert dbsession.scalar(func.count(Person.id)) == 2
+            # The context is gone, but the extra Person should still be around
+            assert dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_add_person(
         self, dbsession: Session, root_component: ContainerComponent
