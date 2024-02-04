@@ -81,7 +81,7 @@ addopts = "-rsx --tb=short"
 testpaths = ["tests"]
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.8"
 
 [tool.coverage.run]
 source = ["asphalt.sqlalchemy"]
