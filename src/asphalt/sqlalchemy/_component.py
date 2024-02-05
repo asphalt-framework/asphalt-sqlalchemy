@@ -9,8 +9,9 @@ from typing import Any, cast
 from anyio import CapacityLimiter, to_thread
 from asphalt.core import (
     Component,
-    Context,
     GeneratedResource,
+    add_resource,
+    add_resource_factory,
     qualified_name,
     resolve_reference,
 )
@@ -170,7 +171,7 @@ class SQLAlchemyComponent(Component):
         else:
             self._sessionmaker = sessionmaker(bind=self._bind, **session_args)
 
-    def create_session(self, ctx: Context) -> GeneratedResource[Session]:
+    def create_session(self) -> GeneratedResource[Session]:
         async def teardown_session() -> None:
             try:
                 if session.in_transaction():
@@ -188,7 +189,7 @@ class SQLAlchemyComponent(Component):
         session = self._sessionmaker()
         return GeneratedResource(session, teardown_session)
 
-    def create_async_session(self, ctx: Context) -> GeneratedResource[AsyncSession]:
+    def create_async_session(self) -> GeneratedResource[AsyncSession]:
         async def teardown_session() -> None:
             try:
                 if session.in_transaction():
@@ -202,7 +203,7 @@ class SQLAlchemyComponent(Component):
         session: AsyncSession = self._async_sessionmaker()
         return GeneratedResource(session, teardown_session)
 
-    async def start(self, ctx: Context) -> None:
+    async def start(self) -> None:
         bind: Connection | Engine | AsyncConnection | AsyncEngine
         if isinstance(self._engine, AsyncEngine):
             if self.ready_callback:
@@ -216,23 +217,23 @@ class SQLAlchemyComponent(Component):
             else:
                 teardown_callback = None
 
-            await ctx.add_resource(
+            await add_resource(
                 self._engine,
                 self.resource_name,
                 description="SQLAlchemy engine (asynchronous)",
                 teardown_callback=teardown_callback,
             )
-            await ctx.add_resource(
+            await add_resource(
                 self._sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
-            await ctx.add_resource(
+            await add_resource(
                 self._async_sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (asynchronous)",
             )
-            await ctx.add_resource_factory(
+            await add_resource_factory(
                 self.create_async_session,
                 self.resource_name,
                 description="SQLAlchemy session (asynchronous)",
@@ -249,18 +250,18 @@ class SQLAlchemyComponent(Component):
             else:
                 teardown_callback = None
 
-            await ctx.add_resource(
+            await add_resource(
                 self._engine,
                 self.resource_name,
                 description="SQLAlchemy engine (synchronous)",
                 teardown_callback=teardown_callback,
             )
-            await ctx.add_resource(
+            await add_resource(
                 self._sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
-            await ctx.add_resource_factory(
+            await add_resource_factory(
                 self.create_session,
                 self.resource_name,
                 description="SQLAlchemy session (synchronous)",

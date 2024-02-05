@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from asphalt.core import ContainerComponent, Context
+from asphalt.core import ContainerComponent, Context, require_resource
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
@@ -61,12 +61,10 @@ class TestSyncRecipe:
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
         # Simulate a rollback happening in a subcontext
-        async with Context() as root_ctx:
-            print("Root context is", hex(id(root_ctx)))
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                print("Subcontext is", hex(id(ctx)))
-                session = ctx.require_resource(Session)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(Session)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -85,10 +83,10 @@ class TestSyncRecipe:
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
         # Simulate adding a row to the "people" table in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(Session)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(Session)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
@@ -98,10 +96,10 @@ class TestSyncRecipe:
         self, dbsession: Session, root_component: ContainerComponent
     ) -> None:
         # Simulate removing the test person in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(Session)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(Session)
                 session.execute(delete(Person))
 
         # The testing code should not see any rows now
@@ -151,10 +149,10 @@ class TestAsyncRecipe:
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate a rollback happening in a subcontext
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(AsyncSession)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -173,10 +171,10 @@ class TestAsyncRecipe:
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate adding a row to the "people" table in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(AsyncSession)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
@@ -186,10 +184,10 @@ class TestAsyncRecipe:
         self, dbsession: AsyncSession, root_component: ContainerComponent
     ) -> None:
         # Simulate removing the test person in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await root_component.start()
+            async with Context():
+                session = require_resource(AsyncSession)
                 await session.execute(delete(Person))
 
         # The testing code should not see any rows now
