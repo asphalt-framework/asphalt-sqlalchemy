@@ -9,9 +9,9 @@ import csv
 import logging
 from pathlib import Path
 
+from anyio import to_thread
 from asphalt.core import (
     CLIApplicationComponent,
-    Context,
     inject,
     resource,
     run_application,
@@ -38,7 +38,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         super().__init__()
         self.csv_path = Path(__file__).with_name("people.csv")
 
-    async def start(self, ctx: Context) -> None:
+    async def start(self) -> None:
         # Remove the db file if it exists
         db_path = self.csv_path.with_name("people.db")
         if db_path.exists():
@@ -49,11 +49,11 @@ class CSVImporterComponent(CLIApplicationComponent):
             url=f"sqlite:///{db_path}",
             ready_callback=lambda bind, factory: metadata.create_all(bind),
         )
-        await super().start(ctx)
+        await super().start()
 
     @inject
-    async def run(self, ctx: Context, *, dbsession: Session = resource()) -> None:
-        async with ctx.threadpool():
+    async def run(self, *, dbsession: Session = resource()) -> None:
+        def insert_rows_in_thread() -> int:
             num_rows = 0
             with self.csv_path.open() as csvfile:
                 reader = csv.reader(csvfile, delimiter="|")
@@ -65,7 +65,10 @@ class CSVImporterComponent(CLIApplicationComponent):
                         )
                     )
 
-        logger.info("Imported %d rows of data", num_rows)
+            return num_rows
+
+        inserted_rows = await to_thread.run_sync(insert_rows_in_thread)
+        logger.info("Imported %d rows of data", inserted_rows)
 
 
 run_application(CSVImporterComponent(), logging=logging.DEBUG)
