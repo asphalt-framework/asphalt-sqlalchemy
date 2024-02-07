@@ -54,7 +54,7 @@ doc = [
 ]
 
 [project.entry-points."asphalt.components"]
-sqlalchemy = "asphalt.sqlalchemy._component:SQLAlchemyComponent"
+sqlalchemy = "asphalt.sqlalchemy:SQLAlchemyComponent"
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
