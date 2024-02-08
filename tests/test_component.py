@@ -257,7 +257,7 @@ async def test_session_event_sync(psycopg_url_async: str) -> None:
         listener_thread = current_thread()
 
     component = SQLAlchemyComponent(url=psycopg_url_async, prefer_async=False)
-    engine: Engine | None = None
+    engine: Engine
     try:
         async with Context():
             await component.start()
@@ -272,9 +272,8 @@ async def test_session_event_sync(psycopg_url_async: str) -> None:
         assert listener_session is dbsession
         assert listener_thread != current_thread()
     finally:
-        if engine:
-            with engine.connect() as conn:
-                clear_database(conn)
+        with engine.connect() as conn:
+            clear_database(conn)
 
 
 async def test_session_event_async(

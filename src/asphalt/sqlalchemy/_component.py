@@ -43,7 +43,7 @@ class SQLAlchemyComponent(Component):
 
     For synchronous engines, the following resources are provided:
 
-    * :class:`~sqlalchemy.future.engine.Engine`
+    * :class:`~sqlalchemy.engine.Engine`
     * :class:`~sqlalchemy.orm.session.sessionmaker`
     * :class:`~sqlalchemy.orm.session.Session`
 
@@ -57,17 +57,16 @@ class SQLAlchemyComponent(Component):
     .. note:: The following options will always be set to fixed values in sessions:
 
       * ``expire_on_commit``: ``False``
-      * ``future``: ``True``
 
     :param url: the connection url passed to
-        :func:`~sqlalchemy.future.engine.create_engine`
+        :func:`~sqlalchemy.engine.create_engine`
         (can also be a dictionary of :class:`~sqlalchemy.engine.url.URL` keyword
         arguments)
     :param bind: a connection or engine to use instead of creating a new engine
     :param prefer_async: if ``True``, try to create an async engine rather than a
         synchronous one, in cases like ``psycopg`` where the driver supports both
     :param engine_args: extra keyword arguments passed to
-        :func:`sqlalchemy.future.engine.create_engine` or
+        :func:`sqlalchemy.engine.create_engine` or
         :func:`sqlalchemy.ext.asyncio.create_engine`
     :param session_args: extra keyword arguments passed to
         :class:`~sqlalchemy.orm.session.Session` or
@@ -77,7 +76,7 @@ class SQLAlchemyComponent(Component):
     :param ready_callback: a callable that is called right before the resources are
         added to the context (can be a coroutine function too)
     :param poolclass: the SQLAlchemy pool class (or a textual reference to one) to use;
-        passed to :func:`sqlalchemy.future.engine.create_engine` or
+        passed to :func:`sqlalchemy.engine.create_engine` or
         :func:`sqlalchemy.ext.asyncio.create_engine`
     :param resource_name: name space for the database resources
     """

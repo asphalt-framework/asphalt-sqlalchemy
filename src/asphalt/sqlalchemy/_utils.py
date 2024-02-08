@@ -3,9 +3,9 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 
-from sqlalchemy import event
+from sqlalchemy import Connection, Engine
+from sqlalchemy.event import listen
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
-from sqlalchemy.future import Connection, Engine
 from sqlalchemy.pool import ConnectionPoolEntry
 from sqlalchemy.sql.schema import MetaData
 
@@ -63,10 +63,10 @@ def apply_sqlite_hacks(engine: Engine | AsyncEngine) -> None:
     integration tests (the connection is passed to the component as the ``bind``
     option).
 
+    :param engine: an engine using the sqlite dialect
+
     .. seealso:: https://docs.sqlalchemy.org/en/14/dialects/sqlite.html\
 #pysqlite-serializable
-
-    :param engine: an engine using the sqlite dialect
 
     """
 
@@ -88,5 +88,5 @@ def apply_sqlite_hacks(engine: Engine | AsyncEngine) -> None:
         )
 
     sync_engine = engine.sync_engine if isinstance(engine, AsyncEngine) else engine
-    event.listen(sync_engine, "connect", do_connect)
-    event.listen(sync_engine, "begin", do_begin)
+    listen(sync_engine, "connect", do_connect)
+    listen(sync_engine, "begin", do_begin)

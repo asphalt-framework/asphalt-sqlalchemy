@@ -26,7 +26,10 @@ repos:
     rev: v1.7.1
     hooks:
       - id: mypy
-        additional_dependencies: ["pytest"]
+        additional_dependencies:
+#          - asphalt
+          - pytest
+          - sqlalchemy
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
