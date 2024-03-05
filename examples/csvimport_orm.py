@@ -9,10 +9,10 @@ import csv
 import logging
 from pathlib import Path
 
+import anyio
 from anyio import to_thread
 from asphalt.core import (
     CLIApplicationComponent,
-    Context,
     inject,
     resource,
     run_application,
@@ -57,7 +57,7 @@ class CSVImporterComponent(CLIApplicationComponent):
         await super().start()
 
     @inject
-    async def run(self, ctx: Context, *, dbsession: Session = resource()) -> None:
+    async def run(self, *, dbsession: Session = resource()) -> None:
         def insert_rows_in_thread() -> int:
             num_rows = 0
             with self.csv_path.open() as csvfile:
@@ -77,4 +77,4 @@ class CSVImporterComponent(CLIApplicationComponent):
         logger.info("Imported %d rows of data", inserted_rows)
 
 
-run_application(CSVImporterComponent(), logging=logging.DEBUG)
+anyio.run(run_application, CSVImporterComponent())
