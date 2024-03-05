@@ -216,23 +216,23 @@ class SQLAlchemyComponent(Component):
             else:
                 teardown_callback = None
 
-            await add_resource(
+            add_resource(
                 self._engine,
                 self.resource_name,
                 description="SQLAlchemy engine (asynchronous)",
                 teardown_callback=teardown_callback,
             )
-            await add_resource(
+            add_resource(
                 self._sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
-            await add_resource(
+            add_resource(
                 self._async_sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (asynchronous)",
             )
-            await add_resource_factory(
+            add_resource_factory(
                 self.create_async_session,
                 self.resource_name,
                 description="SQLAlchemy session (asynchronous)",
@@ -249,18 +249,18 @@ class SQLAlchemyComponent(Component):
             else:
                 teardown_callback = None
 
-            await add_resource(
+            add_resource(
                 self._engine,
                 self.resource_name,
                 description="SQLAlchemy engine (synchronous)",
                 teardown_callback=teardown_callback,
             )
-            await add_resource(
+            add_resource(
                 self._sessionmaker,
                 self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
-            await add_resource_factory(
+            add_resource_factory(
                 self.create_session,
                 self.resource_name,
                 description="SQLAlchemy session (synchronous)",
