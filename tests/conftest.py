@@ -94,7 +94,7 @@ def sqlite_file_engine(
 
 @pytest.fixture
 async def aiosqlite_memory_engine(
-    aiosqlite_memory_url: str
+    aiosqlite_memory_url: str,
 ) -> AsyncGenerator[AsyncEngine, Any]:
     engine = create_async_engine(aiosqlite_memory_url)
     apply_sqlite_hacks(engine)

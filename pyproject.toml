@@ -60,7 +60,7 @@ sqlalchemy = "asphalt.sqlalchemy:SQLAlchemyComponent"
 version_scheme = "post-release"
 local_scheme = "dirty-tag"
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "ASYNC",        # flake8-async
     "E", "F", "W",  # default Flake8
@@ -72,7 +72,7 @@ select = [
     "UP",           # pyupgrade
 ]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["asphalt.sqlalchemy"]
 
 [tool.pytest.ini_options]
