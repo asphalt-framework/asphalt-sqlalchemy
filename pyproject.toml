@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "asphalt ~= 4.12",
+    "asphalt ~= 4.11",
     "SQLAlchemy[asyncio] >= 2.0",
 ]
 dynamic = ["version"]
