@@ -23,7 +23,7 @@ def aiosqlite_memory_url(anyio_backend_name: str) -> str:
 
 
 @pytest.fixture
-def psycopg_url() -> str:  # type: ignore[return]
+def psycopg_url() -> str:
     pytest.importorskip("psycopg", reason="psycopg is not available")
     try:
         return os.environ["POSTGRESQL_URL"]
@@ -40,7 +40,7 @@ def psycopg_url_async(psycopg_url: str, anyio_backend_name: str) -> str:
 
 
 @pytest.fixture
-def mysql_url() -> str:  # type: ignore[return]
+def mysql_url() -> str:
     try:
         return os.environ["MYSQL_URL"]
     except KeyError:

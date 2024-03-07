@@ -9,5 +9,5 @@ from ._utils import clear_database as clear_database
 key: str
 value: Any
 for key, value in list(locals().items()):
-    if getattr(value, "__module__", "").startswith("asphalt.sqlalchemy."):
+    if getattr(value, "__module__", "").startswith(f"{__name__}."):
         value.__module__ = __name__

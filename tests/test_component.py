@@ -84,15 +84,15 @@ async def test_component_start_async(
 )
 async def test_ready_callback(asynchronous: bool) -> None:
     engine2: Engine | AsyncEngine | None = None
-    factory2: sessionmaker | async_sessionmaker | None = None
+    factory2: sessionmaker[Any] | async_sessionmaker[Any] | None = None
 
-    def ready_callback(engine: Engine, factory: sessionmaker) -> None:
+    def ready_callback(engine: Engine, factory: sessionmaker[Any]) -> None:
         nonlocal engine2, factory2
         engine2 = engine
         factory2 = factory
 
     async def ready_callback_async(
-        engine: AsyncEngine, factory: async_sessionmaker
+        engine: AsyncEngine, factory: async_sessionmaker[Any]
     ) -> None:
         nonlocal engine2, factory2
         engine2 = engine

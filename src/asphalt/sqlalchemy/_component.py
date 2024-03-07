@@ -94,7 +94,7 @@ class SQLAlchemyComponent(Component):
         engine_args: dict[str, Any] | None = None,
         session_args: dict[str, Any] | None = None,
         commit_executor_workers: int = 50,
-        ready_callback: Callable[[Engine, sessionmaker], Any] | str | None = None,
+        ready_callback: Callable[[Engine, sessionmaker[Any]], Any] | str | None = None,
         poolclass: str | type[Pool] | None = None,
         resource_name: str = "default",
     ):

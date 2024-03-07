@@ -9,7 +9,7 @@ from sqlalchemy.sql.ddl import CreateSchema, DropSchema
 from sqlalchemy.sql.schema import Column, ForeignKey, MetaData, Table
 from sqlalchemy.sql.sqltypes import Integer
 
-from asphalt.sqlalchemy._utils import clear_database
+from asphalt.sqlalchemy import clear_database
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def connection(sync_engine: Engine) -> Generator[Connection, Any, None]:
         Table("table", metadata, Column("column1", Integer, primary_key=True))
         Table("table2", metadata, Column("fk_column", ForeignKey("table.column1")))
         if conn.dialect.name != "sqlite":
-            conn.execute(CreateSchema("altschema"))
+            conn.execute(CreateSchema("altschema"))  # type: ignore[no-untyped-call]
             Table("table3", metadata, Column("fk_column", Integer), schema="altschema")
 
         metadata.create_all(conn)
@@ -28,7 +28,7 @@ def connection(sync_engine: Engine) -> Generator[Connection, Any, None]:
 
         if conn.dialect.name != "sqlite":
             metadata.drop_all(conn)
-            conn.execute(DropSchema("altschema"))
+            conn.execute(DropSchema("altschema"))  # type: ignore[no-untyped-call]
 
 
 def test_clear_database(connection: Connection) -> None:
