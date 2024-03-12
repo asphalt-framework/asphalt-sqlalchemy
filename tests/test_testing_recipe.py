@@ -2,6 +2,7 @@
 This module exists to make sure that the testing recipe in the documentation is and
 stays valid, and works with different backends.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator, Generator
