@@ -3,11 +3,10 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 
-from sqlalchemy import Connection, Engine
+from sqlalchemy import Connection, Engine, MetaData
 from sqlalchemy.event import listen
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlalchemy.pool import ConnectionPoolEntry
-from sqlalchemy.sql.schema import MetaData
 
 
 def clear_database(engine: Engine | Connection, schemas: Iterable[str] = ()) -> None:
@@ -47,7 +46,11 @@ async def clear_async_database(
     for schema in all_schemas:
         # Reflect the schema to get the list of the tables, views and constraints
         metadata = MetaData()
-        await connection.run_sync(metadata.reflect, schema=schema, views=True)
+        await connection.run_sync(
+            metadata.reflect,  # type: ignore[arg-type]
+            schema=schema,
+            views=True,
+        )
         metadatas.append(metadata)
 
     for metadata in metadatas:

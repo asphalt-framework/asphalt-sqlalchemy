@@ -11,8 +11,7 @@ from asphalt.core import (
     Context,
     NoCurrentContext,
     current_context,
-    get_resource,
-    require_resource,
+    get_resource_nowait,
 )
 from pytest import FixtureRequest
 from sqlalchemy.engine.url import URL
@@ -51,9 +50,9 @@ async def test_component_start_sync(
     async with Context():
         await component.start()
 
-        require_resource(Engine, *args)
-        require_resource(sessionmaker, *args)
-        require_resource(Session, *args)
+        get_resource_nowait(Engine, *args)
+        get_resource_nowait(sessionmaker, *args)
+        get_resource_nowait(Session, *args)
 
 
 @pytest.mark.parametrize(
@@ -72,10 +71,10 @@ async def test_component_start_async(
     async with Context():
         await component.start()
 
-        require_resource(AsyncEngine, *args)
-        async_session_class = require_resource(async_sessionmaker, *args)
-        require_resource(AsyncSession, *args)
-        sync_session_class = require_resource(sessionmaker, *args)
+        get_resource_nowait(AsyncEngine, *args)
+        async_session_class = get_resource_nowait(async_sessionmaker, *args)
+        get_resource_nowait(AsyncSession, *args)
+        sync_session_class = get_resource_nowait(sessionmaker, *args)
         assert async_session_class.kw["sync_session_class"] is sync_session_class
 
 
@@ -103,8 +102,8 @@ async def test_ready_callback(asynchronous: bool) -> None:
     async with Context():
         await component.start()
 
-        engine = require_resource(Engine)
-        factory = require_resource(sessionmaker)
+        engine = get_resource_nowait(Engine)
+        factory = get_resource_nowait(sessionmaker)
         assert engine is engine2
         assert factory is factory2
 
@@ -117,8 +116,8 @@ async def test_bind_sync_connection() -> None:
     async with Context():
         await component.start()
 
-        assert require_resource(Engine) is engine
-        assert require_resource(Session).bind is connection
+        assert get_resource_nowait(Engine) is engine
+        assert get_resource_nowait(Session).bind is connection
 
     connection.close()
 
@@ -131,8 +130,8 @@ async def test_bind_async_connection(aiosqlite_memory_url: str) -> None:
     async with Context():
         await component.start()
 
-        assert require_resource(AsyncEngine) is engine
-        assert require_resource(AsyncSession).bind is connection
+        assert get_resource_nowait(AsyncEngine) is engine
+        assert get_resource_nowait(AsyncSession).bind is connection
 
     await connection.close()
 
@@ -144,8 +143,8 @@ async def test_bind_sync_engine() -> None:
     async with Context():
         await component.start()
 
-        assert require_resource(Engine) is engine
-        assert require_resource(Session).bind is engine
+        assert get_resource_nowait(Engine) is engine
+        assert get_resource_nowait(Session).bind is engine
 
     engine.dispose()
 
@@ -157,8 +156,8 @@ async def test_bind_async_engine() -> None:
     async with Context():
         await component.start()
 
-        assert require_resource(AsyncEngine) is engine
-        assert require_resource(AsyncSession).bind is engine
+        assert get_resource_nowait(AsyncEngine) is engine
+        assert get_resource_nowait(AsyncSession).bind is engine
 
     await engine.dispose()
 
@@ -168,7 +167,7 @@ async def test_close_twice_sync(psycopg_url: str) -> None:
     component = SQLAlchemyComponent(url=psycopg_url, prefer_async=False)
     async with Context():
         await component.start()
-        session = require_resource(Session)
+        session = get_resource_nowait(Session)
         assert isinstance(session.bind, Engine)
         pool = session.bind.pool
         assert isinstance(pool, QueuePool)
@@ -187,7 +186,7 @@ async def test_close_twice_async(psycopg_url_async: str) -> None:
     component = SQLAlchemyComponent(url=psycopg_url_async)
     async with Context():
         await component.start()
-        session = require_resource(AsyncSession)
+        session = get_resource_nowait(AsyncSession)
         assert isinstance(session.bind, AsyncEngine)
         pool = session.bind.pool
         assert isinstance(pool, AsyncAdaptedQueuePool)
@@ -224,7 +223,7 @@ async def test_finish_commit(raise_exception: bool, tmp_path: Path) -> None:
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(Context())
             await component.start()
-            session = require_resource(Session)
+            session = get_resource_nowait(Session)
             session.execute(text("INSERT INTO foo (id) VALUES(3)"))
             if raise_exception:
                 stack.enter_context(pytest.raises(Exception, match="dummy"))
@@ -239,7 +238,7 @@ async def test_memory_leak() -> None:
     component = SQLAlchemyComponent(url="sqlite:///:memory:")
     async with Context():
         await component.start()
-        require_resource(Session)
+        get_resource_nowait(Session)
 
     gc.collect()  # needed on PyPy
     assert next((x for x in gc.get_objects() if isinstance(x, Context)), None) is None
@@ -261,12 +260,12 @@ async def test_session_event_sync(psycopg_url_async: str) -> None:
     try:
         async with Context():
             await component.start()
-            engine = require_resource(Engine)
+            engine = get_resource_nowait(Engine)
             Person.metadata.create_all(engine)
-            session_factory = require_resource(sessionmaker)
+            session_factory = get_resource_nowait(sessionmaker)
             listen(session_factory, "before_commit", listener)
 
-            dbsession = require_resource(Session)
+            dbsession = get_resource_nowait(Session)
             dbsession.add(Person(name="Test person"))
 
         assert listener_session is dbsession
@@ -286,7 +285,7 @@ async def test_session_event_async(
     def listener(session: Session) -> None:
         nonlocal listener_session, listener_thread
         try:
-            async_session = get_resource(AsyncSession)
+            async_session = get_resource_nowait(AsyncSession)
         except NoCurrentContext:
             return
 
@@ -301,10 +300,12 @@ async def test_session_event_async(
     try:
         async with Context():
             await component.start()
-            engine = require_resource(AsyncEngine)
-            dbsession = require_resource(AsyncSession)
+            engine = get_resource_nowait(AsyncEngine)
+            dbsession = get_resource_nowait(AsyncSession)
             await dbsession.run_sync(
-                lambda session: Person.metadata.create_all(session.bind)
+                lambda session: Person.metadata.create_all(
+                    session.bind  # type: ignore[arg-type]
+                )
             )
             dbsession.add(Person(name="Test person"))
 

@@ -33,7 +33,7 @@ a synchronous ``sessionmaker`` resource is provided by this component even for a
 engines. To add listeners, simply use this session maker as the target for the
 listeners::
 
-    from asphalt.core import NoCurrentContext, get_resource, inject, resource
+    from asphalt.core import NoCurrentContext, get_resource_nowait, inject, resource
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy import event
@@ -41,7 +41,7 @@ listeners::
 
     def precommit_hook(session):
         try:
-            async_session = get_resource(AsyncSession)
+            async_session = get_resource_nowait(AsyncSession)
         except NoCurrentContext:
             return
 

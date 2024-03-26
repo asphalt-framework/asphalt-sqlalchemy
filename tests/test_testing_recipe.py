@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from asphalt.core import ContainerComponent, Context, require_resource
+from asphalt.core import ContainerComponent, Context, get_resource_nowait
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
@@ -65,7 +65,7 @@ class TestSyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(Session)
+                session = get_resource_nowait(Session)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -87,7 +87,7 @@ class TestSyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(Session)
+                session = get_resource_nowait(Session)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
@@ -100,7 +100,7 @@ class TestSyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(Session)
+                session = get_resource_nowait(Session)
                 session.execute(delete(Person))
 
         # The testing code should not see any rows now
@@ -153,7 +153,7 @@ class TestAsyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(AsyncSession)
+                session = get_resource_nowait(AsyncSession)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -175,7 +175,7 @@ class TestAsyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(AsyncSession)
+                session = get_resource_nowait(AsyncSession)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
@@ -188,7 +188,7 @@ class TestAsyncRecipe:
         async with Context():
             await root_component.start()
             async with Context():
-                session = require_resource(AsyncSession)
+                session = get_resource_nowait(AsyncSession)
                 await session.execute(delete(Person))
 
         # The testing code should not see any rows now
