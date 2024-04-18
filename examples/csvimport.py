@@ -9,7 +9,6 @@ import csv
 import logging
 from pathlib import Path
 
-import anyio
 from anyio import to_thread
 from asphalt.core import (
     CLIApplicationComponent,
@@ -72,4 +71,4 @@ class CSVImporterComponent(CLIApplicationComponent):
         logger.info("Imported %d rows of data", inserted_rows)
 
 
-anyio.run(run_application, CSVImporterComponent())
+run_application(CSVImporterComponent())
