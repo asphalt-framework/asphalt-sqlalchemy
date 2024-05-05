@@ -9,9 +9,9 @@ from typing import Any, cast
 from anyio import CapacityLimiter, to_thread
 from asphalt.core import (
     Component,
-    GeneratedResource,
     add_resource,
     add_resource_factory,
+    add_teardown_callback,
     qualified_name,
     resolve_reference,
 )
@@ -170,7 +170,7 @@ class SQLAlchemyComponent(Component):
         else:
             self._sessionmaker = sessionmaker(bind=self._bind, **session_args)
 
-    def create_session(self) -> GeneratedResource[Session]:
+    def create_session(self) -> Session:
         async def teardown_session() -> None:
             try:
                 if session.in_transaction():
@@ -186,9 +186,10 @@ class SQLAlchemyComponent(Component):
                 session.close()
 
         session = self._sessionmaker()
-        return GeneratedResource(session, teardown_session)
+        add_teardown_callback(teardown_session)
+        return session
 
-    def create_async_session(self) -> GeneratedResource[AsyncSession]:
+    def create_async_session(self) -> AsyncSession:
         async def teardown_session() -> None:
             try:
                 if session.in_transaction():
@@ -200,7 +201,8 @@ class SQLAlchemyComponent(Component):
                 await session.close()
 
         session: AsyncSession = self._async_sessionmaker()
-        return GeneratedResource(session, teardown_session)
+        add_teardown_callback(teardown_session)
+        return session
 
     async def start(self) -> None:
         bind: Connection | Engine | AsyncConnection | AsyncEngine

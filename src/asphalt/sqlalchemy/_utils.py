@@ -47,7 +47,7 @@ async def clear_async_database(
         # Reflect the schema to get the list of the tables, views and constraints
         metadata = MetaData()
         await connection.run_sync(
-            metadata.reflect,  # type: ignore[arg-type]
+            metadata.reflect,
             schema=schema,
             views=True,
         )
