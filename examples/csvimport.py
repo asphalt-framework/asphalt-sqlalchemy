@@ -71,4 +71,4 @@ class CSVImporterComponent(CLIApplicationComponent):
         logger.info("Imported %d rows of data", inserted_rows)
 
 
-run_application(CSVImporterComponent())
+run_application(CSVImporterComponent)

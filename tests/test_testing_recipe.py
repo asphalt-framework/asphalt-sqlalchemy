@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from asphalt.core import ContainerComponent, Context, get_resource_nowait
+from asphalt.core import Component, Context, get_resource_nowait, start_component
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
@@ -49,8 +49,8 @@ class TestSyncRecipe:
             return person
 
     @pytest.fixture
-    def root_component(self, connection: Connection) -> ContainerComponent:
-        return ContainerComponent({"sqlalchemy": {"bind": connection}})
+    def component_config(self, connection: Connection) -> dict[str, Any]:
+        return {"components": {"sqlalchemy": {"bind": connection}}}
 
     @pytest.fixture
     def dbsession(self, connection: Connection) -> Generator[Session, Any, None]:
@@ -59,11 +59,11 @@ class TestSyncRecipe:
             yield session
 
     async def test_rollback(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate a rollback happening in a subcontext
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(Session)
                 try:
@@ -81,11 +81,11 @@ class TestSyncRecipe:
             assert dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_add_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate adding a row to the "people" table in the application
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(Session)
                 session.add(Person(name="Another person"))
@@ -94,11 +94,11 @@ class TestSyncRecipe:
         assert dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_delete_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate removing the test person in the application
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(Session)
                 session.execute(delete(Person))
@@ -135,8 +135,8 @@ class TestAsyncRecipe:
             return person
 
     @pytest.fixture
-    def root_component(self, connection: AsyncConnection) -> ContainerComponent:
-        return ContainerComponent({"sqlalchemy": {"bind": connection}})
+    def component_config(self, connection: Connection) -> dict[str, Any]:
+        return {"components": {"sqlalchemy": {"bind": connection}}}
 
     @pytest.fixture
     async def dbsession(
@@ -147,11 +147,11 @@ class TestAsyncRecipe:
             yield session
 
     async def test_rollback(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate a rollback happening in a subcontext
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(AsyncSession)
                 try:
@@ -169,11 +169,11 @@ class TestAsyncRecipe:
         assert await dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_add_person(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate adding a row to the "people" table in the application
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(AsyncSession)
                 session.add(Person(name="Another person"))
@@ -182,11 +182,11 @@ class TestAsyncRecipe:
         assert await dbsession.scalar(select(func.count(Person.id))) == 2
 
     async def test_delete_person(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate removing the test person in the application
         async with Context():
-            await root_component.start()
+            await start_component(Component, component_config)
             async with Context():
                 session = get_resource_nowait(AsyncSession)
                 await session.execute(delete(Person))

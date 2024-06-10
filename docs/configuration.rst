@@ -63,8 +63,7 @@ of the ``sqlalchemy`` component::
       sqlalchemy:
         resource_name: db1
         url: postgresql+asyncpg:///mydatabase
-      sqlalchemy2:
-        type: sqlalchemy
+      sqlalchemy/db2:
         resource_name: db2
         url: sqlite+aiosqlite:///mydb.sqlite
 
