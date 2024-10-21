@@ -9,13 +9,13 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from asphalt.core import ContainerComponent, Context
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import delete, func, select
 
+from asphalt.core import ContainerComponent, Context
 from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 
 from .model import Base, Person

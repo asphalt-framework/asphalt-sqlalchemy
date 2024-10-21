@@ -9,6 +9,8 @@ import csv
 import logging
 from pathlib import Path
 
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+
 from asphalt.core import (
     CLIApplicationComponent,
     Context,
@@ -16,7 +18,6 @@ from asphalt.core import (
     resource,
     run_application,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 logger = logging.getLogger(__name__)
 
