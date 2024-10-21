@@ -7,8 +7,6 @@ from threading import Thread, current_thread
 from typing import Any
 
 import pytest
-from asphalt.core import NoCurrentContext, current_context
-from asphalt.core.context import Context, get_resource
 from pytest import FixtureRequest
 from sqlalchemy.engine.url import URL
 from sqlalchemy.event import listen, remove
@@ -23,6 +21,8 @@ from sqlalchemy.orm.session import Session, sessionmaker
 from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, QueuePool
 from sqlalchemy.sql import text
 
+from asphalt.core import NoCurrentContext, current_context
+from asphalt.core.context import Context, get_resource
 from asphalt.sqlalchemy.component import SQLAlchemyComponent
 from asphalt.sqlalchemy.utils import clear_async_database, clear_database
 

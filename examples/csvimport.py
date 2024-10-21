@@ -9,6 +9,10 @@ import csv
 import logging
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.schema import Column, MetaData, Table
+from sqlalchemy.sql.sqltypes import Integer, Unicode
+
 from asphalt.core import (
     CLIApplicationComponent,
     Context,
@@ -16,9 +20,6 @@ from asphalt.core import (
     resource,
     run_application,
 )
-from sqlalchemy.orm import Session
-from sqlalchemy.sql.schema import Column, MetaData, Table
-from sqlalchemy.sql.sqltypes import Integer, Unicode
 
 logger = logging.getLogger(__name__)
 metadata = MetaData()
