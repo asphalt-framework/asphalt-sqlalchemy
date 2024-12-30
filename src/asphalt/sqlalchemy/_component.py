@@ -30,8 +30,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import Pool
 
-logger = logging.getLogger(__name__)
-
 
 class SQLAlchemyComponent(Component):
     """
@@ -59,15 +57,15 @@ class SQLAlchemyComponent(Component):
       * ``expire_on_commit``: ``False``
 
     :param url: the connection url passed to
-        :func:`~sqlalchemy.engine.create_engine`
+        :func:`~sqlalchemy.create_engine`
         (can also be a dictionary of :class:`~sqlalchemy.engine.url.URL` keyword
         arguments)
     :param bind: a connection or engine to use instead of creating a new engine
     :param prefer_async: if ``True``, try to create an async engine rather than a
         synchronous one, in cases like ``psycopg`` where the driver supports both
     :param engine_args: extra keyword arguments passed to
-        :func:`sqlalchemy.engine.create_engine` or
-        :func:`sqlalchemy.ext.asyncio.create_engine`
+        :func:`sqlalchemy.create_engine` or
+        :func:`sqlalchemy.ext.asyncio.create_async_engine`
     :param session_args: extra keyword arguments passed to
         :class:`~sqlalchemy.orm.session.Session` or
         :class:`~sqlalchemy.ext.asyncio.AsyncSession`
@@ -76,9 +74,8 @@ class SQLAlchemyComponent(Component):
     :param ready_callback: a callable that is called right before the resources are
         added to the context (can be a coroutine function too)
     :param poolclass: the SQLAlchemy pool class (or a textual reference to one) to use;
-        passed to :func:`sqlalchemy.engine.create_engine` or
-        :func:`sqlalchemy.ext.asyncio.create_engine`
-    :param resource_name: name space for the database resources
+        passed to :func:`sqlalchemy.create_engine` or
+        :func:`sqlalchemy.ext.asyncio.create_async_engine`
     """
 
     _engine: Engine | AsyncEngine
@@ -96,9 +93,7 @@ class SQLAlchemyComponent(Component):
         commit_executor_workers: int = 50,
         ready_callback: Callable[[Engine, sessionmaker[Any]], Any] | str | None = None,
         poolclass: str | type[Pool] | None = None,
-        resource_name: str = "default",
     ):
-        self.resource_name = resource_name
         self.commit_thread_limiter = CapacityLimiter(commit_executor_workers)
         self.ready_callback = resolve_reference(ready_callback)
         engine_args = engine_args or {}
@@ -220,23 +215,19 @@ class SQLAlchemyComponent(Component):
 
             add_resource(
                 self._engine,
-                self.resource_name,
                 description="SQLAlchemy engine (asynchronous)",
                 teardown_callback=teardown_callback,
             )
             add_resource(
                 self._sessionmaker,
-                self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
             add_resource(
                 self._async_sessionmaker,
-                self.resource_name,
                 description="SQLAlchemy session factory (asynchronous)",
             )
             add_resource_factory(
                 self.create_async_session,
-                self.resource_name,
                 description="SQLAlchemy session (asynchronous)",
             )
         else:
@@ -253,24 +244,14 @@ class SQLAlchemyComponent(Component):
 
             add_resource(
                 self._engine,
-                self.resource_name,
                 description="SQLAlchemy engine (synchronous)",
                 teardown_callback=teardown_callback,
             )
             add_resource(
                 self._sessionmaker,
-                self.resource_name,
                 description="SQLAlchemy session factory (synchronous)",
             )
             add_resource_factory(
                 self.create_session,
-                self.resource_name,
                 description="SQLAlchemy session (synchronous)",
             )
-
-        logger.info(
-            "Configured SQLAlchemy resources (%s; dialect=%s, driver=%s)",
-            self.resource_name,
-            bind.dialect.name,
-            bind.dialect.driver,
-        )

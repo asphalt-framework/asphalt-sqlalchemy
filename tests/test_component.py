@@ -34,47 +34,29 @@ from .model import Person
 pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.parametrize(
-    "component_opts, args",
-    [
-        pytest.param({}, ()),
-        pytest.param({"resource_name": "alternate"}, ("alternate",)),
-    ],
-)
-async def test_component_start_sync(
-    component_opts: dict[str, Any], args: tuple[Any]
-) -> None:
+async def test_component_start_sync() -> None:
     """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
-    component = SQLAlchemyComponent(url=url, **component_opts)
+    component = SQLAlchemyComponent(url=url)
     async with Context():
         await component.start()
 
-        get_resource_nowait(Engine, *args)
-        get_resource_nowait(sessionmaker, *args)
-        get_resource_nowait(Session, *args)
+        get_resource_nowait(Engine)
+        get_resource_nowait(sessionmaker)
+        get_resource_nowait(Session)
 
 
-@pytest.mark.parametrize(
-    "component_opts, args",
-    [
-        pytest.param({}, ()),
-        pytest.param({"resource_name": "alternate"}, ("alternate",)),
-    ],
-)
-async def test_component_start_async(
-    component_opts: dict[str, Any], args: tuple[Any]
-) -> None:
+async def test_component_start_async() -> None:
     """Test that the component creates all the expected (asynchronous) resources."""
     url = URL.create("sqlite+aiosqlite", database=":memory:")
-    component = SQLAlchemyComponent(url=url, **component_opts)
+    component = SQLAlchemyComponent(url=url)
     async with Context():
         await component.start()
 
-        get_resource_nowait(AsyncEngine, *args)
-        async_session_class = get_resource_nowait(async_sessionmaker, *args)
-        get_resource_nowait(AsyncSession, *args)
-        sync_session_class = get_resource_nowait(sessionmaker, *args)
+        get_resource_nowait(AsyncEngine)
+        async_session_class = get_resource_nowait(async_sessionmaker)
+        get_resource_nowait(AsyncSession)
+        sync_session_class = get_resource_nowait(sessionmaker)
         assert async_session_class.kw["sync_session_class"] is sync_session_class
 
 

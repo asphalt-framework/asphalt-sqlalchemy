@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "asphalt ~= 4.11",
+    "asphalt @ git+https://github.com/asphalt-framework/asphalt",
     "SQLAlchemy[asyncio] >= 2.0",
 ]
 dynamic = ["version"]
@@ -40,6 +40,7 @@ test = [
     "aiosqlite",
     "anyio[trio] >= 4.2",
     "asyncmy; platform_python_implementation == 'CPython'",
+    "coverage >= 7",
     "pymysql",
     "psycopg >= 3.1; platform_python_implementation == 'CPython'",
     "pytest >= 7.4",
@@ -73,9 +74,10 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["asphalt.sqlalchemy"]
+known-third-party = ["asphalt.core"]
 
 [tool.pytest.ini_options]
-addopts = "-rsx --tb=short"
+addopts = ["-rsfE", "--tb=short"]
 testpaths = ["tests"]
 
 [tool.mypy]
@@ -92,20 +94,18 @@ branch = true
 show_missing = true
 
 [tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = py39, py310, py311, py312, py313, pypy3
+env_list = ["py39", "py310", "py311", "py312", "py313"]
 skip_missing_interpreters = true
-minversion = 4.0
 
-[testenv]
-extras = test
-commands = python -m pytest {posargs}
-setenv =
-  MYSQL_URL = mysql+pymysql://root@localhost:33060/asphalttest
-  POSTGRESQL_URL = postgresql+psycopg://postgres:secret@localhost:54320/asphalttest
-
-[testenv:docs]
-extras = doc
-commands = sphinx-build -W docs build/sphinx
+[tool.tox.env_run_base]
+commands = [["python", "-m", "pytest", { replace = "posargs", extend = true }]]
+package = "editable"
+extras = ["test"]
+setenv = """
+    MYSQL_URL = mysql+pymysql://root@localhost:33060/asphalttest
+    POSTGRESQL_URL = postgresql+psycopg://postgres:secret@localhost:54320/asphalttest
 """
+
+[tool.tox.env.docs]
+commands = [["sphinx-build", "-W", "-n", "docs", "build/sphinx", { replace = "posargs", extend = true }]]
+extras = ["doc"]
