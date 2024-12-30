@@ -44,7 +44,7 @@ class CSVImporterComponent(CLIApplicationComponent):
             ready_callback=lambda bind, factory: metadata.create_all(bind),
         )
 
-    async def start(self) -> None:
+    async def prepare(self) -> None:
         # Remove the db file if it exists
         if self.db_path.exists():
             self.db_path.unlink()
