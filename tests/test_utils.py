@@ -19,7 +19,7 @@ def connection(sync_engine: Engine) -> Generator[Connection, Any, None]:
         Table("table", metadata, Column("column1", Integer, primary_key=True))
         Table("table2", metadata, Column("fk_column", ForeignKey("table.column1")))
         if conn.dialect.name != "sqlite":
-            conn.execute(CreateSchema("altschema"))  # type: ignore[no-untyped-call]
+            conn.execute(CreateSchema("altschema"))
             Table("table3", metadata, Column("fk_column", Integer), schema="altschema")
 
         metadata.create_all(conn)
@@ -28,7 +28,7 @@ def connection(sync_engine: Engine) -> Generator[Connection, Any, None]:
 
         if conn.dialect.name != "sqlite":
             metadata.drop_all(conn)
-            conn.execute(DropSchema("altschema"))  # type: ignore[no-untyped-call]
+            conn.execute(DropSchema("altschema"))
 
 
 def test_clear_database(connection: Connection) -> None:

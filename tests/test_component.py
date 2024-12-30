@@ -4,7 +4,7 @@ import gc
 from contextlib import AsyncExitStack
 from pathlib import Path
 from threading import Thread, current_thread
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from asphalt.core import (
@@ -151,7 +151,7 @@ async def test_close_twice_sync(psycopg_url: str) -> None:
         await component.start()
         session = get_resource_nowait(Session)
         assert isinstance(session.bind, Engine)
-        pool = session.bind.pool
+        pool = cast(QueuePool, session.bind.pool)
         assert isinstance(pool, QueuePool)
         session.execute(text("SELECT 1"))
         assert pool.checkedout() == 1
@@ -170,7 +170,7 @@ async def test_close_twice_async(psycopg_url_async: str) -> None:
         await component.start()
         session = get_resource_nowait(AsyncSession)
         assert isinstance(session.bind, AsyncEngine)
-        pool = session.bind.pool
+        pool = cast(QueuePool, session.bind.pool)
         assert isinstance(pool, AsyncAdaptedQueuePool)
         await session.execute(text("SELECT 1"))
         assert pool.checkedout() == 1
