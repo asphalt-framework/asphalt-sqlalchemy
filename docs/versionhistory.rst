@@ -3,6 +3,13 @@ Version history
 
 This library adheres to `Semantic Versioning 2.0 <http://semver.org/>`_.
 
+**UNRELEASED**
+
+- Dropped support for Python 3.8
+- **BACKWARD INCOMPATIBLE** Bumped minimum Asphalt version to 5.0
+- **BACKWARD INCOMPATIBLE** Dropped the ``resource_name`` option in favor of Asphalt's
+  native alternate resource name syntax
+
 **5.1.0** (2024-01-16)
 
 - Dropped support for Python 3.7
