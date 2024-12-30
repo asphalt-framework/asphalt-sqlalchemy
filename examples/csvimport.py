@@ -37,19 +37,17 @@ class CSVImporterComponent(CLIApplicationComponent):
     def __init__(self) -> None:
         super().__init__()
         self.csv_path = Path(__file__).with_name("people.csv")
+        self.db_path = self.csv_path.with_name("people.db")
+        self.add_component(
+            "sqlalchemy",
+            url=f"sqlite:///{self.db_path}",
+            ready_callback=lambda bind, factory: metadata.create_all(bind),
+        )
 
     async def start(self) -> None:
         # Remove the db file if it exists
-        db_path = self.csv_path.with_name("people.db")
-        if db_path.exists():
-            db_path.unlink()
-
-        self.add_component(
-            "sqlalchemy",
-            url=f"sqlite:///{db_path}",
-            ready_callback=lambda bind, factory: metadata.create_all(bind),
-        )
-        await super().start()
+        if self.db_path.exists():
+            self.db_path.unlink()
 
     @inject
     async def run(self, *, dbsession: Session = resource()) -> None:
