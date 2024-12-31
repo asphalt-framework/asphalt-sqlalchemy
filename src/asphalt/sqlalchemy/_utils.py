@@ -3,11 +3,10 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 
-from sqlalchemy import event
+from sqlalchemy import Connection, Engine, MetaData
+from sqlalchemy.event import listen
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
-from sqlalchemy.future import Connection, Engine
 from sqlalchemy.pool import ConnectionPoolEntry
-from sqlalchemy.sql.schema import MetaData
 
 
 def clear_database(engine: Engine | Connection, schemas: Iterable[str] = ()) -> None:
@@ -47,7 +46,11 @@ async def clear_async_database(
     for schema in all_schemas:
         # Reflect the schema to get the list of the tables, views and constraints
         metadata = MetaData()
-        await connection.run_sync(metadata.reflect, schema=schema, views=True)
+        await connection.run_sync(
+            metadata.reflect,
+            schema=schema,
+            views=True,
+        )
         metadatas.append(metadata)
 
     for metadata in metadatas:
@@ -63,10 +66,10 @@ def apply_sqlite_hacks(engine: Engine | AsyncEngine) -> None:
     integration tests (the connection is passed to the component as the ``bind``
     option).
 
+    :param engine: an engine using the sqlite dialect
+
     .. seealso:: https://docs.sqlalchemy.org/en/14/dialects/sqlite.html\
 #pysqlite-serializable
-
-    :param engine: an engine using the sqlite dialect
 
     """
 
@@ -88,5 +91,5 @@ def apply_sqlite_hacks(engine: Engine | AsyncEngine) -> None:
         )
 
     sync_engine = engine.sync_engine if isinstance(engine, AsyncEngine) else engine
-    event.listen(sync_engine, "connect", do_connect)
-    event.listen(sync_engine, "begin", do_begin)
+    listen(sync_engine, "connect", do_connect)
+    listen(sync_engine, "begin", do_begin)

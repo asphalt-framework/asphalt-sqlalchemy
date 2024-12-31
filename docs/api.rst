@@ -1,17 +1,15 @@
 API reference
 =============
 
-Components
-----------
+.. py:currentmodule:: asphalt.sqlalchemy
 
-.. py:currentmodule:: asphalt.sqlalchemy.component
+Component
+---------
 
 .. autoclass:: SQLAlchemyComponent
 
-Utilities
----------
-
-.. py:currentmodule:: asphalt.sqlalchemy.utils
+Utility functions
+-----------------
 
 .. autofunction:: clear_database
 .. autofunction:: clear_async_database

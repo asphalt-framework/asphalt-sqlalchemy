@@ -46,15 +46,15 @@ you can skip this section. For those having to use engines for which no async
 counterpart is available, read on.
 
 Synchronous database connections in an asynchronous application pose a problem because
-running operations against a database will block the event loop, and thus needs to be
+running operations against a database will block the event loop, and thus need to be
 wrapped in worker threads. Another thing to watch out for is lazy loading of
 relationships and deferred columns which triggers implicit queries when those attributes
 are accessed.
 
-On Python 3.9 and above, you would do::
+Here's an example of how you could use worker threads to run a blocking database
+operation::
 
-    from asyncio import to_thread
-
+    from anyio import to_thread
     from asphalt.core import inject, resource
     from sqlalchemy.orm import Session
     from sqlalchemy.future import select
@@ -64,24 +64,7 @@ On Python 3.9 and above, you would do::
 
     @inject
     async def handler(*, dbsession: Session = resource()) -> None:
-        people = await to_thread(dbsession.scalars, select(Person))
-
-
-On earlier Python versions::
-
-    from asyncio import get_running_loop
-
-    from asphalt.core import inject, resource
-    from sqlalchemy.orm import Session
-    from sqlalchemy.future import select
-
-    from yourapp.model import Person
-
-
-    @inject
-    async def handler(*, dbsession: Session = resource()) -> None:
-        loop = get_running_loop()
-        people = await loop.run_in_executor(None, dbsession.scalars, select(Person))
+        people = await to_thread.run_sync(dbsession.scalars, select(Person))
 
 Releasing database resources during a long operation
 ----------------------------------------------------

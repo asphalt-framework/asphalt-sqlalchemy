@@ -9,14 +9,14 @@ from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
 import pytest
-from asphalt.core import ContainerComponent, Context
+from asphalt.core import Component, Context, get_resource_nowait, start_component
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import delete, func, select
 
-from asphalt.sqlalchemy.utils import clear_async_database, clear_database
+from asphalt.sqlalchemy import clear_async_database, clear_database
 
 from .model import Base, Person
 
@@ -49,8 +49,8 @@ class TestSyncRecipe:
             return person
 
     @pytest.fixture
-    def root_component(self, connection: Connection) -> ContainerComponent:
-        return ContainerComponent({"sqlalchemy": {"bind": connection}})
+    def component_config(self, connection: Connection) -> dict[str, Any]:
+        return {"components": {"sqlalchemy": {"bind": connection}}}
 
     @pytest.fixture
     def dbsession(self, connection: Connection) -> Generator[Session, Any, None]:
@@ -59,13 +59,13 @@ class TestSyncRecipe:
             yield session
 
     async def test_rollback(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate a rollback happening in a subcontext
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(Session)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(Session)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -77,30 +77,30 @@ class TestSyncRecipe:
                     session.add(Person(name="Works now!"))
                     session.flush()
 
-        # The context is gone, but the extra Person should still be around
-        assert dbsession.scalar(func.count(Person.id)) == 2
+            # The context is gone, but the extra Person should still be around
+            assert dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_add_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate adding a row to the "people" table in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(Session)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(Session)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
         assert dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_delete_person(
-        self, dbsession: Session, root_component: ContainerComponent
+        self, dbsession: Session, component_config: dict[str, Any]
     ) -> None:
         # Simulate removing the test person in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(Session)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(Session)
                 session.execute(delete(Person))
 
         # The testing code should not see any rows now
@@ -135,8 +135,8 @@ class TestAsyncRecipe:
             return person
 
     @pytest.fixture
-    def root_component(self, connection: AsyncConnection) -> ContainerComponent:
-        return ContainerComponent({"sqlalchemy": {"bind": connection}})
+    def component_config(self, connection: Connection) -> dict[str, Any]:
+        return {"components": {"sqlalchemy": {"bind": connection}}}
 
     @pytest.fixture
     async def dbsession(
@@ -147,13 +147,13 @@ class TestAsyncRecipe:
             yield session
 
     async def test_rollback(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate a rollback happening in a subcontext
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(AsyncSession)
                 try:
                     # No value for a non-nullable column => IntegrityError!
                     session.add(Person())
@@ -169,26 +169,26 @@ class TestAsyncRecipe:
         assert await dbsession.scalar(func.count(Person.id)) == 2
 
     async def test_add_person(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate adding a row to the "people" table in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(AsyncSession)
                 session.add(Person(name="Another person"))
 
         # The testing code should see both rows now
         assert await dbsession.scalar(select(func.count(Person.id))) == 2
 
     async def test_delete_person(
-        self, dbsession: AsyncSession, root_component: ContainerComponent
+        self, dbsession: AsyncSession, component_config: dict[str, Any]
     ) -> None:
         # Simulate removing the test person in the application
-        async with Context() as root_ctx:
-            await root_component.start(root_ctx)
-            async with Context() as ctx:
-                session = ctx.require_resource(AsyncSession)
+        async with Context():
+            await start_component(Component, component_config)
+            async with Context():
+                session = get_resource_nowait(AsyncSession)
                 await session.execute(delete(Person))
 
         # The testing code should not see any rows now
