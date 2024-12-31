@@ -34,6 +34,11 @@ from .model import Person
 pytestmark = pytest.mark.anyio
 
 
+def test_bad_bind_argument() -> None:
+    with pytest.raises(TypeError, match="incompatible bind argument: str"):
+        SQLAlchemyComponent(bind="bad")  # type: ignore[arg-type]
+
+
 async def test_component_start_sync() -> None:
     """Test that the component creates all the expected (synchronous) resources."""
     url = URL.create("sqlite", database=":memory:")
@@ -285,9 +290,7 @@ async def test_session_event_async(
             engine = get_resource_nowait(AsyncEngine)
             dbsession = get_resource_nowait(AsyncSession)
             await dbsession.run_sync(
-                lambda session: Person.metadata.create_all(
-                    session.bind  # type: ignore[arg-type]
-                )
+                lambda session: Person.metadata.create_all(session.bind)
             )
             dbsession.add(Person(name="Test person"))
 

@@ -84,12 +84,12 @@ testpaths = ["tests"]
 python_version = "3.9"
 strict = true
 explicit_package_bases = true
+mypy_path = ["src", "tests", "examples"]
 
 [tool.coverage.run]
 source = ["asphalt.sqlalchemy"]
 relative_files = true
 branch = true
-mypy_path = ["src", "tests", "examples"]
 
 [tool.coverage.report]
 show_missing = true

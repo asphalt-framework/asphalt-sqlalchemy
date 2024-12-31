@@ -91,7 +91,10 @@ class SQLAlchemyComponent(Component):
         engine_args: dict[str, Any] | None = None,
         session_args: dict[str, Any] | None = None,
         commit_executor_workers: int = 50,
-        ready_callback: Callable[[Engine, sessionmaker[Any]], Any] | str | None = None,
+        ready_callback: Callable[[Engine, sessionmaker[Any]], Any]
+        | Callable[[AsyncEngine, async_sessionmaker[Any]], Any]
+        | str
+        | None = None,
         poolclass: str | type[Pool] | None = None,
     ):
         self.commit_thread_limiter = CapacityLimiter(commit_executor_workers)
@@ -112,7 +115,7 @@ class SQLAlchemyComponent(Component):
             elif isinstance(bind, AsyncEngine):
                 self._engine = self._async_bind = bind
             else:
-                raise TypeError(f"Incompatible bind argument: {qualified_name(bind)}")
+                raise TypeError(f"incompatible bind argument: {qualified_name(bind)}")
         else:
             if isinstance(url, dict):
                 url = URL.create(**url)
@@ -131,7 +134,7 @@ class SQLAlchemyComponent(Component):
             if isinstance(poolclass, str):
                 poolclass = resolve_reference(poolclass)
 
-            pool_class = cast("type[Pool]", poolclass)
+            pool_class = cast(type[Pool], poolclass)
             if prefer_async:
                 try:
                     self._engine = self._async_bind = create_async_engine(
